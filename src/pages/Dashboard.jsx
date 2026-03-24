@@ -1,46 +1,53 @@
+import { useState, useEffect } from "react"  // ✅ Only import what we use - NO useCallback
 import { Users, Package, AlertTriangle, DollarSign, TrendingUp, ShoppingCart } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { useCustomers, useStock, useSales } from "@/lib/hooks"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useData } from "@/context/DataContext"  // ✅ Use DataContext
 import { format } from "date-fns"
 
 // Kenyan Shilling formatter
-const formatKES = (amount) => {
-  return new Intl.NumberFormat('en-KE', {
-    style: 'currency',
-    currency: 'KES',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount || 0)
-}
+const formatKES = (amount) => new Intl.NumberFormat('en-KE', {
+  style: 'currency', currency: 'KES', minimumFractionDigits: 0, maximumFractionDigits: 0
+}).format(amount || 0)
 
 export default function Dashboard() {
-  const {  customers = [], isLoading: loadingCustomers } = useCustomers()
-  const {  stock = [], isLoading: loadingStock } = useStock()
-  const {  sales = [], isLoading: loadingSales } = useSales()
+  const [customers, setCustomers] = useState([])
+  const [stock, setStock] = useState([])
+  const [sales, setSales] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const customersData = customers || []
-  const stockData = stock || []
-  const salesData = sales || []
+  // ✅ Get functions from DataContext
+  const { getCustomers, getStock, getSales } = useData()
+
+  // ✅ Load all data function (regular async, NOT useCallback)
+  const loadData = async () => {
+    try {
+      const [c, s, salesData] = await Promise.all([getCustomers(), getStock(), getSales()])
+      setCustomers(c || [])
+      setStock(s || [])
+      setSales(salesData || [])
+    } catch (err) {
+      console.error('Dashboard load error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ✅ Load on mount with empty deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadData() }, [])
 
   // Calculate statistics
-  const totalCustomers = customersData.length
-  const totalProducts = stockData.length
-  const lowStockItems = stockData.filter(item => item.quantity <= 5).length
-  const outOfStockItems = stockData.filter(item => item.quantity <= 0).length
+  const totalCustomers = customers.length
+  const totalProducts = stock.length
+  const lowStockItems = stock.filter(item => item.quantity <= 5).length
+  const outOfStockItems = stock.filter(item => item.quantity <= 0).length
 
   // Calculate today's sales
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   
-  const todaysSales = salesData.filter(sale => {
+  const todaysSales = sales.filter(sale => {
     const saleDate = new Date(sale.date)
     saleDate.setHours(0, 0, 0, 0)
     return saleDate.getTime() === today.getTime()
@@ -48,9 +55,9 @@ export default function Dashboard() {
 
   const todaysRevenue = todaysSales.reduce((sum, sale) => sum + (sale.total || 0), 0)
   const todaysTransactions = todaysSales.length
-  const totalRevenue = salesData.reduce((sum, sale) => sum + (sale.total || 0), 0)
-  const stockValue = stockData.reduce((sum, item) => sum + ((item.quantity || 0) * (item.selling_price || 0)), 0)
-  const recentSales = salesData.slice(0, 5)
+  const totalRevenue = sales.reduce((sum, sale) => sum + (sale.total || 0), 0)
+  const stockValue = stock.reduce((sum, item) => sum + ((item.quantity || 0) * (item.selling_price || 0)), 0)
+  const recentSales = sales.slice(0, 5)
 
   const stats = [
     {
@@ -87,7 +94,7 @@ export default function Dashboard() {
     }
   ]
 
-  if (loadingCustomers || loadingStock || loadingSales) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-100">
         <div className="text-center">
@@ -190,7 +197,7 @@ export default function Dashboard() {
               The following items need restocking soon:
             </p>
             <ul className="text-sm space-y-2">
-              {stockData
+              {stock
                 .filter(item => item.quantity <= 5)
                 .map(item => (
                   <li key={item.id} className="flex justify-between items-center p-2 rounded-lg bg-card border">
