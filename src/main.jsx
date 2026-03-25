@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'  // ✅ Keep this
+// ✅ CHANGE: Import HashRouter instead of BrowserRouter
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import './index.css'
@@ -26,8 +27,8 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <DataProvider>
-        {/* ✅ ADD basename HERE - must match your repo name */}
-        <BrowserRouter basename="/mary-arctic-water-app">
+        {/* ✅ CHANGE: Use HashRouter (no basename needed for GitHub Pages) */}
+        <HashRouter>
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
@@ -37,7 +38,7 @@ createRoot(document.getElementById('root')).render(
             </Route>
           </Routes>
           <Toaster />
-        </BrowserRouter>
+        </HashRouter>
       </DataProvider>
     </QueryClientProvider>
   </StrictMode>
