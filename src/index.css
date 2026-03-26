@@ -1,689 +1,313 @@
 @import "tailwindcss";
 
-/* Import Inter font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-:root {
-  /* ============================================
-     AQUABIZ COLOR PALETTE
-     ============================================ */
-  
-  /* Primary: Ocean Blue */
-  --primary: 200 100% 45%;
-  --primary-foreground: 0 0% 100%;
-  --primary-light: 195 100% 55%;
-  --primary-dark: 210 100% 35%;
-
-  /* Background: Beautiful Water Gradient */
-  --background: 210 60% 97%;
-  --foreground: 215 25% 15%;
-
-  /* Cards: Pure White */
-  --card: 0 0% 100%;
-  --card-foreground: 215 25% 15%;
-
-  /* Secondary */
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 215 25% 20%;
-
-  /* Muted */
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 20% 45%;
-
-  /* Accent */
-  --accent: 185 100% 50%;
-  --accent-foreground: 0 0% 100%;
-
-  /* Destructive */
-  --destructive: 0 85% 60%;
-  --destructive-foreground: 0 0% 100%;
-
-  /* Success & Warning */
-  --success: 150 70% 40%;
-  --success-foreground: 0 0% 100%;
-  --warning: 35 90% 55%;
-  --warning-foreground: 0 0% 100%;
-
-  /* Borders */
-  --border: 210 30% 88%;
-  --input: 210 30% 88%;
-  --ring: 200 100% 45%;
-
-  /* Radius */
-  --radius: 0.875rem;
+/* Theme variables */
+@theme {
+  --color-primary: #00a8ff;
+  --color-primary-light: #33b9ff;
+  --color-primary-dark: #0088cc;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #1e293b;
+  --color-background: #f0f9ff;
+  --color-foreground: #0f172a;
+  --color-card: #ffffff;
+  --color-border: #e2e8f0;
+  --color-muted: #f8fafc;
+  --color-muted-foreground: #64748b;
+  --color-destructive: #ef4444;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --radius: 0.75rem;
+  --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.03);
+  --shadow-elevated: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
-/* ============================================
-   BASE STYLES
-   ============================================ */
+/* Dark mode */
+.dark {
+  --color-background: #0f172a;
+  --color-foreground: #f8fafc;
+  --color-card: #1e293b;
+  --color-border: #334155;
+  --color-muted: #1e293b;
+  --color-primary: #33b9ff;
+}
 
+/* Base styles */
 @layer base {
   * {
-    border: none;
-    box-sizing: border-box;
+    @apply border-border;
   }
-
+  
   body {
-    /* Beautiful Water Gradient Background */
-    background: linear-gradient(
-      135deg,
-      #f0f9ff 0%,      /* Light sky blue */
-      #e0f2fe 50%,     /* Soft blue */
-      #dbeafe 100%     /* Gentle periwinkle */
-    );
+    /* 🌊 Beautiful animated water background */
+    background: linear-gradient(-45deg, #f0f9ff, #e0f2fe, #dbeafe, #f0f9ff);
+    background-size: 400% 400%;
     background-attachment: fixed;
-    color: hsl(var(--foreground));
-    font-family: Inter, system-ui, -apple-system, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    line-height: 1.6;
+    animation: gradientShift 15s ease infinite;
     min-height: 100vh;
+    @apply font-sans antialiased text-foreground;
   }
-
-  /* Subtle water pattern overlay */
+  
+  /* Floating water droplets effect */
   body::before {
-    content: "";
+    content: '';
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     background-image: 
-      radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
-      radial-gradient(circle at 80% 70%, rgba(147, 197, 253, 0.04) 0%, transparent 50%);
+      radial-gradient(circle at 20% 30%, rgba(0, 168, 255, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(0, 168, 255, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(0, 168, 255, 0.03) 0%, transparent 40%);
     pointer-events: none;
     z-index: -1;
   }
-
-  html { scroll-behavior: smooth; }
-
-  ::selection {
-    background-color: hsl(var(--primary) / 0.25);
-    color: hsl(var(--foreground));
-  }
-
-  /* Custom Scrollbar */
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.5));
-    border-radius: 4px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, hsl(var(--primary) / 0.5), hsl(var(--primary) / 0.7));
-  }
-
-  button, input, select, textarea { font-family: inherit; }
-
-  :focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-  }
 }
 
-/* ============================================
-   COMPONENT CLASSES
-   ============================================ */
-
-/* Cards - Clean White */
-.card-enhanced {
-  background-color: hsl(var(--card));
-  color: hsl(var(--card-foreground));
-  border-radius: var(--radius);
-  box-shadow: 
-    0 1px 3px 0 rgb(0 0 0 / 0.06),
-    0 1px 2px -1px rgb(0 0 0 / 0.06);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Animations */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
-.card-enhanced:hover {
-  box-shadow: 
-    0 10px 15px -3px rgb(0 0 0 / 0.08),
-    0 4px 6px -4px rgb(0 0 0 / 0.08);
-  transform: translateY(-2px);
-}
-
-/* Gradient Cards for Stats */
-.card-gradient {
-  background: linear-gradient(135deg, 
-    hsl(var(--card)) 0%, 
-    hsl(var(--secondary) / 0.3) 100%
-  );
-  border-radius: var(--radius);
-  box-shadow: 
-    0 4px 6px -1px rgb(0 0 0 / 0.04),
-    0 2px 4px -2px rgb(0 0 0 / 0.04);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.card-gradient:hover {
-  box-shadow: 
-    0 20px 25px -5px rgb(0 0 0 / 0.08),
-    0 8px 10px -6px rgb(0 0 0 / 0.06);
-  transform: translateY(-3px) scale(1.01);
-}
-
-/* Primary Button with Gradient */
-.btn-primary-gradient {
-  background: linear-gradient(135deg, 
-    hsl(var(--primary)) 0%, 
-    hsl(var(--primary-light)) 100%
-  );
-  color: hsl(var(--primary-foreground));
-  font-weight: 600;
-  border-radius: var(--radius);
-  box-shadow: 
-    0 4px 6px -1px hsl(var(--primary) / 0.3),
-    0 2px 4px -2px hsl(var(--primary) / 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.btn-primary-gradient:hover {
-  box-shadow: 
-    0 10px 15px -3px hsl(var(--primary) / 0.4),
-    0 4px 6px -4px hsl(var(--primary) / 0.3);
-  transform: translateY(-2px);
-  filter: brightness(1.05);
-}
-.btn-primary-gradient:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* Input Fields */
-.input-enhanced {
-  background-color: hsl(var(--background));
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.625rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.input-enhanced:focus {
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
-  outline: none;
-  background-color: hsl(var(--card));
-}
-.input-enhanced:hover:not(:focus) {
-  border-color: hsl(var(--primary) / 0.3);
-  background-color: hsl(var(--card));
-}
-
-/* Table Row Hover */
-.table-row-hover {
-  transition: background-color 0.2s ease;
-}
-.table-row-hover:hover {
-  background-color: hsl(var(--primary) / 0.04);
-}
-
-/* Status Badges */
-.badge-success {
-  background: linear-gradient(135deg, hsl(var(--success) / 0.15), hsl(var(--success) / 0.1));
-  color: hsl(var(--success));
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: inline-block;
-}
-.badge-warning {
-  background: linear-gradient(135deg, hsl(var(--warning) / 0.15), hsl(var(--warning) / 0.1));
-  color: hsl(var(--warning));
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: inline-block;
-}
-.badge-destructive {
-  background: linear-gradient(135deg, hsl(var(--destructive) / 0.15), hsl(var(--destructive) / 0.1));
-  color: hsl(var(--destructive));
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: inline-block;
-}
-
-/* Page Header */
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
-}
-
-/* Icon Container */
-.icon-container {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.875rem;
-  background: linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary-light) / 0.08));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: hsl(var(--primary));
-}
-
-/* ============================================
-   ANIMATIONS
-   ============================================ */
-
-.animate-fade-in { animation: fadeIn 0.4s ease-out; }
-.animate-slide-up { animation: slideUp 0.5s ease-out; }
-.animate-pulse-soft { animation: pulseSoft 2s ease-in-out infinite; }
-.animate-bounce-in { animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
 
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(15px); }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes pulseSoft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-@keyframes bounceIn {
-  0% { opacity: 0; transform: scale(0.85); }
-  70% { transform: scale(1.05); }
-  100% { opacity: 1; transform: scale(1); }
-}
 
-/* ============================================
-   UTILITY CLASSES
-   ============================================ */
+/* Utilities */
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .card {
+    @apply bg-card rounded-2xl p-6 shadow-soft transition-all duration-300 hover:shadow-elevated;
+  }
+  
+  .btn-primary {
+    @apply bg-linear-to-r from-primary to-primary-light text-white font-medium px-5 py-2.5 rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200;
+  }
+  
+  .input {
+    @apply border border-border/50 bg-card/50 rounded-xl px-3 py-2 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+  
+  .animate-fade-in-up {
+    animation: fadeInUp 0.4s ease-out forwards;
+  }
 
-/* Glass Navbar */
-.glass {
-  background: linear-gradient(135deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.85));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
 }
+/* Add to src/index.css - Hover Lift Effects */
 
-/* Text Gradient */
-.text-gradient {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Shadows */
-.shadow-soft {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-}
-.shadow-elevated {
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.06);
-}
-/* ============================================
-   DASHBOARD SPECIFIC STYLES
-   ============================================ */
-
-/* Dashboard Stat Cards - Make Numbers & Icons Visible */
-.dashboard-stat-card {
-  background: linear-gradient(135deg, 
-    hsl(var(--card)) 0%, 
-    hsl(var(--secondary) / 0.3) 100%
-  );
-  border-radius: var(--radius);
-  box-shadow: 
-    0 4px 6px -1px rgb(0 0 0 / 0.04),
-    0 2px 4px -2px rgb(0 0 0 / 0.04);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.dashboard-stat-card:hover {
-  box-shadow: 
-    0 20px 25px -5px rgb(0 0 0 / 0.08),
-    0 8px 10px -6px rgb(0 0 0 / 0.06);
-  transform: translateY(-3px) scale(1.01);
-}
-
-/* Dashboard Stat Numbers - Bold & Visible */
-.dashboard-stat-value {
-  font-size: 2rem;
-  font-weight: 800 !important;
-  background: linear-gradient(135deg, 
-    hsl(var(--primary)) 0%, 
-    hsl(var(--primary-light)) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  line-height: 1.2;
-}
-
-.dashboard-stat-value.success {
-  background: linear-gradient(135deg, 
-    hsl(var(--success)) 0%, 
-    #34d399 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.dashboard-stat-value.warning {
-  background: linear-gradient(135deg, 
-    hsl(var(--warning)) 0%, 
-    #fbbf24 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Dashboard Icon Containers - Pop with Shadow */
-.dashboard-icon-container {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 
-    0 4px 8px rgb(0 0 0 / 0.12),
-    inset 0 1px 1px rgb(255 255 255 / 0.3);
-}
-
-.dashboard-icon-container.primary {
-  background: linear-gradient(135deg, 
-    hsl(var(--primary)) 0%, 
-    hsl(var(--primary-light)) 100%
-  );
-}
-
-.dashboard-icon-container.success {
-  background: linear-gradient(135deg, 
-    hsl(var(--success)) 0%, 
-    #34d399 100%
-  );
-}
-
-.dashboard-icon-container.warning {
-  background: linear-gradient(135deg, 
-    hsl(var(--warning)) 0%, 
-    #fbbf24 100%
-  );
-}
-
-.dashboard-icon-container svg {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: white !important;
-}
-
-/* Dashboard Card Titles - Visible */
-.dashboard-card-title {
-  color: hsl(var(--foreground)) !important;
-  font-weight: 600 !important;
-  font-size: 0.875rem;
-}
-
-/* Dashboard Overview Cards - Large Numbers */
-.dashboard-overview-value {
-  font-size: 2.5rem;
-  font-weight: 800 !important;
-  line-height: 1.1;
-}
-
-/* Dashboard Recent Sales Table - Clean */
-.dashboard-table-header {
-  background: linear-gradient(90deg, 
-    hsl(var(--secondary) / 0.5) 0%, 
-    hsl(var(--secondary) / 0.3) 100%
-  );
-}
-
-.dashboard-table-row:hover {
-  background-color: hsl(var(--primary) / 0.04);
-}
-
-/* Dashboard Page Header */
-.dashboard-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-}
-
-.dashboard-header-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 1rem;
-  background: linear-gradient(135deg, 
-    hsl(var(--primary) / 0.15) 0%, 
-    hsl(var(--primary-light) / 0.1) 100%
-  );
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 8px rgb(0 0 0 / 0.08);
-}
-
-.dashboard-header-icon svg {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: hsl(var(--primary));
-}
-
-.dashboard-header-title {
-  font-size: 2rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, 
-    hsl(var(--primary)) 0%, 
-    hsl(var(--primary-light)) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.dashboard-header-subtitle {
-  font-size: 0.875rem;
-  color: hsl(var(--muted-foreground));
-  margin-top: 0.25rem;
-}
-
-/* Dashboard Low Stock Alert */
-.dashboard-alert {
-  background: linear-gradient(135deg, 
-    hsl(var(--warning) / 0.1) 0%, 
-    hsl(var(--warning) / 0.05) 100%
-  );
-  border: 1px solid hsl(var(--warning) / 0.3);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.04);
-}
-
-/* Dashboard Empty State */
-.dashboard-empty {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.dashboard-empty-icon {
-  width: 4rem;
-  height: 4rem;
-  margin: 0 auto 1rem;
-  border-radius: 1rem;
-  background: hsl(var(--secondary));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.5;
-}
-
-.dashboard-empty-icon svg {
-  width: 2rem;
-  height: 2rem;
-}
-/* ============================================
-   SALES PAGE SPECIFIC STYLES
-   ============================================ */
-
-/* Sales Page Header */
-.sales-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid hsl(var(--border) / 0.5);
-}
-
-.sales-header-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, 
-    hsl(var(--primary) / 0.12) 0%, 
-    hsl(var(--primary-light) / 0.08) 100%
-  );
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: hsl(var(--primary));
-  box-shadow: 0 2px 4px rgb(0 0 0 / 0.04);
-}
-
-.sales-header-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: hsl(var(--foreground));
-}
-
-.sales-header-subtitle {
-  font-size: 0.875rem;
-  color: hsl(var(--muted-foreground));
-  margin-top: 0.25rem;
-}
-
-/* Sales Form Card */
-.sales-form-card {
-  background-color: hsl(var(--card));
-  border: 1px solid hsl(var(--border) / 0.5);
-  border-radius: var(--radius);
-  box-shadow: 
-    0 1px 3px 0 rgb(0 0 0 / 0.04),
-    0 1px 2px -1px rgb(0 0 0 / 0.04);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.sales-form-card:hover {
-  box-shadow: 
-    0 10px 15px -3px rgb(0 0 0 / 0.06),
-    0 4px 6px -4px rgb(0 0 0 / 0.06);
-}
-
-/* Sales Form Grid */
-.sales-form-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-
-@media (min-width: 768px) {
-  .sales-form-grid {
-    grid-template-columns: repeat(2, 1fr);
+@layer utilities {
+  /* Card hover lift */
+  .hover-lift {
+    @apply transition-all duration-300 ease-out;
+    @apply hover:-translate-y-1 hover:shadow-elevated;
+    @apply active:translate-y-0 active:shadow-soft;
+  }
+  
+  /* Stronger lift for emphasis */
+  .hover-lift-strong {
+    @apply transition-all duration-300 ease-out;
+    @apply hover:-translate-y-2 hover:shadow-xl;
+    @apply active:translate-y-0 active:shadow-soft;
+  }
+  
+  /* Subtle lift */
+  .hover-lift-subtle {
+    @apply transition-all duration-200 ease-out;
+    @apply hover:-translate-y-0.5 hover:shadow-md;
+  }
+  
+  /* Button hover lift */
+  .btn-hover-lift {
+    @apply transition-all duration-200 ease-out;
+    @apply hover:-translate-y-0.5 hover:shadow-lg;
+    @apply active:translate-y-0 active:shadow;
+  }
+  
+  /* Table row hover */
+  .table-row-hover {
+    @apply transition-all duration-150;
+    @apply hover:bg-primary/5 hover:shadow-sm;
+  }
+  
+  /* Icon hover lift */
+  .icon-hover-lift {
+    @apply transition-all duration-200 ease-out;
+    @apply hover:scale-110 hover:rotate-3;
+  }
+  
+  /* Stat card hover */
+  .stat-card-hover {
+    @apply transition-all duration-300 ease-out;
+    @apply hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10;
+  }
+  
+  /* Dashboard card hover */
+  .dashboard-card-hover {
+    @apply transition-all duration-300 ease-out;
+    @apply hover:-translate-y-1.5 hover:shadow-xl;
   }
 }
 
-@media (min-width: 1024px) {
-  .sales-form-grid {
-    grid-template-columns: repeat(4, 1fr);
+/* Update existing card class */
+.card {
+  @apply bg-card rounded-2xl p-6 shadow-soft;
+  @apply transition-all duration-300 ease-out;
+  @apply hover:-translate-y-1 hover:shadow-elevated;
+  @apply active:translate-y-0 active:shadow-soft;
+}
+
+/* Update stat card */
+.card-stat {
+  @apply bg-card rounded-2xl p-6 shadow-soft;
+  @apply transition-all duration-300 ease-out;
+  @apply hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10;
+}
+
+/* Update button styles */
+.btn-primary {
+  @apply bg-linear-to-r from-primary to-primary-light text-white;
+  @apply font-medium px-5 py-2.5 rounded-xl shadow-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply hover:scale-[1.02] hover:shadow-xl hover:-translate-y-0.5;
+  @apply active:scale-[0.98] active:translate-y-0 active:shadow-lg;
+}
+
+.btn-soft {
+  @apply bg-primary/10 text-primary hover:bg-primary/20;
+  @apply border border-primary/20 hover:border-primary/40;
+  @apply font-medium px-5 py-2.5 rounded-xl;
+  @apply transition-all duration-200 ease-out;
+  @apply hover:-translate-y-0.5 hover:shadow-md;
+  @apply active:translate-y-0;
+}
+
+.btn-outline {
+  @apply border-2 border-border/50 bg-transparent hover:border-primary/50 hover:text-primary;
+  @apply font-medium px-5 py-2.5 rounded-xl;
+  @apply transition-all duration-200 ease-out;
+  @apply hover:-translate-y-0.5 hover:shadow-md;
+  @apply active:translate-y-0;
+}
+/* Add to src/index.css - Form Field Visibility Enhancements */
+
+/* Better label visibility */
+label {
+  @apply text-sm font-medium text-foreground/90;
+}
+
+/* Required field indicator */
+label span[className*="destructive"] {
+  @apply text-destructive font-bold;
+}
+
+/* Input focus enhancement */
+.input:focus {
+  @apply border-primary ring-2 ring-primary/20 bg-card;
+}
+
+/* Error state visibility */
+.input[aria-invalid="true"],
+.input.border-destructive {
+  @apply border-destructive ring-2 ring-destructive/20 bg-red-50/50;
+}
+
+/* Helper text visibility */
+.text-xs.text-muted-foreground {
+  @apply text-muted-foreground/80;
+}
+
+/* Category pills - better contrast */
+.category-pill {
+  @apply px-3 py-1.5 rounded-full text-xs font-medium;
+  @apply bg-secondary/80 text-secondary-foreground;
+  @apply hover:bg-primary hover:text-primary-foreground;
+  @apply transition-all duration-200 cursor-pointer border border-transparent;
+}
+
+.category-pill.active {
+  @apply bg-primary text-primary-foreground shadow-md border-primary/30;
+}
+
+/* Select dropdown visibility */
+.select-trigger {
+  @apply min-h-[40px] px-3 py-2;
+}
+
+.select-content {
+  @apply max-h-64 overflow-y-auto;
+}
+
+/* Stock badge visibility in dropdowns */
+.stock-badge {
+  @apply text-xs px-2 py-0.5 rounded-full border font-medium;
+}
+
+.stock-badge.healthy {
+  @apply bg-green-100 text-green-700 border-green-200;
+}
+
+.stock-badge.low {
+  @apply bg-yellow-100 text-yellow-700 border-yellow-200;
+}
+
+.stock-badge.critical {
+  @apply bg-red-100 text-red-700 border-red-200;
+}
+
+/* Price field emphasis */
+input[type="number"][name="price"],
+input[type="number"][name="selling_price"] {
+  @apply font-mono font-semibold text-primary;
+}
+
+/* Quantity field emphasis */
+input[type="number"][name="quantity"] {
+  @apply font-mono font-medium;
+}
+
+/* Form section spacing */
+.space-y-2 {
+  @apply space-y-2.5;
+}
+
+/* Better error message visibility */
+.text-destructive.text-xs {
+  @apply flex items-center gap-1 font-medium;
+}
+
+.text-destructive.text-xs::before {
+  content: "⚠";
+  @apply text-xs;
+}
+/* Navbar-specific styles */
+@layer utilities {
+  .hover-lift-subtle {
+    @apply transition-all duration-200 ease-out;
+    @apply hover:-translate-y-0.5 hover:shadow-md;
   }
 }
 
-/* Sales Form Fields */
-.sales-form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.sales-form-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: hsl(var(--foreground));
-}
-
-.sales-form-input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.75rem;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.sales-form-input:focus {
-  outline: none;
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
-  background-color: hsl(var(--card));
-}
-
-.sales-form-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  background-color: hsl(var(--muted));
-}
-
-/* Sales Category Select */
-.sales-category-select {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.75rem;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.sales-category-select:focus {
-  outline: none;
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
-}
-
-/* Sales Error Banner */
-.sales-error-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, 
-    hsl(var(--destructive) / 0.1) 0%, 
-    hsl(var(--destructive) / 0.05) 100%
-  );
-  border: 1px solid hsl(var(--destructive) / 0.3);
-  color: hsl(var(--destructive));
-  animation: slideDown 0.3s ease-out;
-}
-
-.sales-error-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex-shrink: 0;
-}
-
-.sales-error-text {
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-@keyframes slideDown {
+/* Smooth dropdown animation */
+@keyframes fadeInDown {
   from {
     opacity: 0;
     transform: translateY(-10px);
@@ -694,341 +318,6 @@
   }
 }
 
-/* Sales Total Display */
-.sales-total {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: hsl(var(--foreground));
-}
-
-.sales-total-amount {
-  background: linear-gradient(135deg, 
-    hsl(var(--primary)) 0%, 
-    hsl(var(--primary-light)) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 800;
-}
-
-/* Sales Submit Button */
-.sales-submit-btn {
-  min-width: 150px;
-  padding: 0.625rem 1.5rem;
-  background: linear-gradient(135deg, 
-    hsl(var(--primary)) 0%, 
-    hsl(var(--primary-light)) 100%
-  );
-  color: hsl(var(--primary-foreground));
-  font-weight: 600;
-  border-radius: var(--radius);
-  border: none;
-  cursor: pointer;
-  box-shadow: 
-    0 4px 6px -1px hsl(var(--primary) / 0.3),
-    0 2px 4px -2px hsl(var(--primary) / 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.sales-submit-btn:hover:not(:disabled) {
-  box-shadow: 
-    0 10px 15px -3px hsl(var(--primary) / 0.4),
-    0 4px 6px -4px hsl(var(--primary) / 0.3);
-  transform: translateY(-2px);
-  filter: brightness(1.05);
-}
-
-.sales-submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  filter: none;
-}
-
-.sales-submit-btn:active:not(:disabled) {
-  transform: translateY(0);
-  filter: brightness(0.95);
-}
-
-/* ============================================
-   SALES PAGE SPECIFIC STYLES - CLEAN UI
-   ============================================ */
-
-/* Sales Page Header */
-.sales-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid hsl(var(--border) / 0.3); /* ✅ Softer border */
-}
-
-/* Sales Form Card - NO BLACK BORDERS */
-.sales-form-card {
-  background-color: hsl(var(--card));
-  border: 1px solid hsl(var(--border) / 0.3); /* ✅ Soft subtle border */
-  border-radius: var(--radius);
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04); /* ✅ Soft shadow instead of border */
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.sales-form-card:hover {
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.08);
-  transform: translateY(-2px);
-}
-
-/* Sales Form Grid */
-.sales-form-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-
-@media (min-width: 768px) {
-  .sales-form-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .sales-form-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-/* Sales Form Fields - CLEAN INPUTS */
-.sales-form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.sales-form-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: hsl(var(--foreground));
-}
-
-.sales-form-input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid hsl(var(--border) / 0.5); /* ✅ Subtle border */
-  border-radius: 0.75rem;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.sales-form-input:focus {
-  outline: none;
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
-  background-color: hsl(var(--card));
-}
-
-.sales-form-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  background-color: hsl(var(--muted));
-}
-
-/* Sales Category Select */
-.sales-category-select {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid hsl(var(--border) / 0.5); /* ✅ Subtle border */
-  border-radius: 0.75rem;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.sales-category-select:focus {
-  outline: none;
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
-}
-
-/* Sales Error Banner - SOFTER */
-.sales-error-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, 
-    hsl(var(--destructive) / 0.1) 0%, 
-    hsl(var(--destructive) / 0.05) 100%
-  );
-  border: 1px solid hsl(var(--destructive) / 0.2); /* ✅ Softer border */
-  color: hsl(var(--destructive));
-  animation: slideDown 0.3s ease-out;
-}
-
-/* Sales Total Display */
-.sales-total {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: hsl(var(--foreground));
-}
-
-.sales-total-amount {
-  background: linear-gradient(135deg, 
-    hsl(var(--primary)) 0%, 
-    hsl(var(--primary-light)) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 800;
-}
-
-/* Sales Submit Button */
-.sales-submit-btn {
-  min-width: 150px;
-  padding: 0.625rem 1.5rem;
-  background: linear-gradient(135deg, 
-    hsl(var(--primary)) 0%, 
-    hsl(var(--primary-light)) 100%
-  );
-  color: hsl(var(--primary-foreground));
-  font-weight: 600;
-  border-radius: var(--radius);
-  border: none; /* ✅ No border */
-  cursor: pointer;
-  box-shadow: 0 4px 6px -1px hsl(var(--primary) / 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.sales-submit-btn:hover:not(:disabled) {
-  box-shadow: 0 10px 15px -3px hsl(var(--primary) / 0.4);
-  transform: translateY(-2px);
-  filter: brightness(1.05);
-}
-
-.sales-submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  filter: none;
-}
-
-/* Sales Table - CLEAN, NO HARSH BORDERS */
-.sales-table-container {
-  overflow-x: auto;
-  border-radius: var(--radius);
-  border: 1px solid hsl(var(--border) / 0.3); /* ✅ Soft border */
-  background-color: hsl(var(--card));
-}
-
-.sales-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
-
-.sales-table-header {
-  background: linear-gradient(90deg, 
-    hsl(var(--secondary) / 0.5) 0%, 
-    hsl(var(--secondary) / 0.3) 100%
-  );
-}
-
-.sales-table-header-cell {
-  padding: 0.75rem 1rem;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  text-align: left;
-  border-bottom: 1px solid hsl(var(--border) / 0.3); /* ✅ Soft border */
-}
-
-.sales-table-row {
-  border-bottom: 1px solid hsl(var(--border) / 0.2); /* ✅ Very subtle border */
-  transition: background-color 0.2s ease;
-}
-
-.sales-table-row:hover {
-  background-color: hsl(var(--primary) / 0.04);
-}
-
-.sales-table-row:last-child {
-  border-bottom: none;
-}
-
-.sales-table-cell {
-  padding: 0.75rem 1rem;
-  color: hsl(var(--foreground));
-  border: none; /* ✅ No cell borders */
-}
-
-/* Sales Empty State */
-.sales-empty-state {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.sales-empty-icon {
-  width: 3rem;
-  height: 3rem;
-  margin: 0 auto 1rem;
-  border-radius: 0.75rem;
-  background: hsl(var(--secondary));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.5;
-}
-
-/* Sales Loading State */
-.sales-loading {
-  display: flex;
-  justify-content: center;
-  padding: 3rem 1rem;
-}
-
-.sales-loading-spinner {
-  width: 2rem;
-  height: 2rem;
-  border: 2px solid hsl(var(--primary));
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Sales Form Divider - SOFTER */
-.sales-form-divider {
-  border-top: 1px solid hsl(var(--border) / 0.3); /* ✅ Soft divider */
-  margin-top: 1rem;
-  padding-top: 1rem;
-}
-
-/* Responsive */
-@media (max-width: 640px) {
-  .sales-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  
-  .sales-form-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .sales-total {
-    font-size: 1.25rem;
-  }
-  
-  .sales-submit-btn {
-    width: 100%;
-  }
+.animate-fade-in-down {
+  animation: fadeInDown 0.2s ease-out forwards;
 }

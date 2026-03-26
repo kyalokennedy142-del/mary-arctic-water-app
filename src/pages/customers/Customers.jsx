@@ -1,236 +1,561 @@
-import { useState, useEffect } from 'react'
-import { Users, UserPlus, Phone, MapPin, Pencil, Trash2 } from 'lucide-react'
+"use client"
+
+import { useState, useEffect, useCallback } from 'react'
+import { 
+  Users, 
+  UserPlus, 
+  Phone, 
+  MapPin, 
+  Pencil, 
+  Trash2, 
+  Search, 
+  AlertTriangle,
+  X,
+  ChevronUp,
+  ChevronDown
+} from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useData } from "@/context/DataContext"
-import CustomerSales from "./CustomerSales"
 import { toast } from "sonner"
+import CustomerForm from '@/components/customers/CustomerForm'
+import CustomerSales from "./CustomerSales"
 
 export default function Customers() {
   const [selectedCustomerId, setSelectedCustomerId] = useState(null)
   const [editingCustomer, setEditingCustomer] = useState(null)
-  const [formData, setFormData] = useState({ name: "", phone: "", location: "" })
   const [customers, setCustomers] = useState([])
+  const [allSales, setAllSales] = useState([])
   const [loading, setLoading] = useState(true)
+  
+  // Search and filter
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  
+  // Sorting
+  const [sortColumn, setSortColumn] = useState('name')
+  const [sortDirection, setSortDirection] = useState('asc')
+  
+  // Delete confirmation
+  const [customerToDelete, setCustomerToDelete] = useState(null)
 
-  // eslint-disable-next-line no-unused-vars
-  const { getCustomers, createCustomer, updateCustomer, deleteCustomer, getSalesByCustomer } = useData()
+  const { getCustomers, createCustomer, updateCustomer, deleteCustomer, getSales } = useData()
 
-  // ✅ DEFINE loadCustomers FIRST (before useEffect)
-  const loadCustomers = async () => {
+  // Load customers AND sales
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await getCustomers()
-      setCustomers(data || [])
+      const [customersData, salesData] = await Promise.all([
+        getCustomers(),
+        getSales()
+      ])
+      setCustomers(customersData || [])
+      setAllSales(salesData || [])
+      console.log('✅ Loaded:', customersData?.length, 'customers,', salesData?.length, 'sales')
     } catch (err) {
-      console.error('Failed to load customers:', err)
+      console.error('Failed to load data:', err)
+      toast.error('Failed to load customers')
       setCustomers([])
+      setAllSales([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [getCustomers, getSales])
 
-  // ✅ THEN use it in useEffect
+  // Load on mount
   useEffect(() => {
-    loadCustomers()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    loadData()
+  }, [loadData])
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  // Get customer status based on sales
+  const getCustomerStatus = useCallback((customer) => {
+    const customerSales = allSales.filter(s => s.customer_id === customer.id)
+    const lastSale = customerSales.length > 0 
+      ? new Date(Math.max(...customerSales.map(s => new Date(s.date))))
+      : null
     
-    if (!formData.name || !formData.phone) {
-      toast.error("Name and Phone are required")
-      return
-    }
+    const daysSinceLastSale = lastSale 
+      ? Math.floor((Date.now() - lastSale.getTime()) / (1000 * 60 * 60 * 24))
+      : null
+    
+    const createdDate = new Date(customer.created_at || Date.now())
+    const daysSinceCreated = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysSinceCreated <= 7 && !lastSale) return 'new'
+    if (daysSinceLastSale !== null && daysSinceLastSale <= 30) return 'active'
+    if (daysSinceLastSale !== null && daysSinceLastSale <= 60) return 'at-risk'
+    return 'dormant'
+  }, [allSales])
 
+  // Calculate customer stats
+  const getCustomerStats = useCallback((customer) => {
+    const customerSales = allSales.filter(s => s.customer_id === customer.id)
+    const totalOrders = customerSales.length
+    const totalSpent = customerSales.reduce((sum, s) => sum + (s.total || 0), 0)
+    const lastPurchase = customerSales.length > 0 
+      ? new Date(Math.max(...customerSales.map(s => new Date(s.date))))
+      : null
+    
+    return { totalOrders, totalSpent, lastPurchase }
+  }, [allSales])
+
+  // Handle form submission
+  const handleSubmit = useCallback(async (formData) => {
     try {
       if (editingCustomer) {
         await updateCustomer(editingCustomer.id, formData)
         setEditingCustomer(null)
+        toast.success('Customer updated!')
       } else {
         await createCustomer(formData)
+        toast.success('Customer added!')
       }
-      setFormData({ name: "", phone: "", location: "" })
-      await loadCustomers()
-    // eslint-disable-next-line no-unused-vars
+      await loadData()
+      return true
     } catch (err) {
-      // Error already shown by DataContext
+      console.error('Save customer error:', err)
+      toast.error('Failed to save customer')
+      return false
     }
-  }
+  }, [editingCustomer, createCustomer, updateCustomer, loadData])
 
-  const handleCardClick = (customerId) => {
+  // Handle view customer sales
+  const handleViewCustomer = useCallback((customerId) => {
     setSelectedCustomerId(customerId)
-  }
-
-  const handleEditClick = (customer, e) => {
-    e.stopPropagation()
-    setEditingCustomer(customer)
-    setFormData({
-      name: customer.name,
-      phone: customer.phone,
-      location: customer.location || ""
-    })
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  }, [])
 
-  const handleDeleteClick = async (customer, e) => {
-    e.stopPropagation()
-    if (window.confirm(`Delete ${customer.name}?`)) {
-      try {
-        await deleteCustomer(customer.id)
-        if (selectedCustomerId === customer.id) setSelectedCustomerId(null)
-        await loadCustomers()
-      // eslint-disable-next-line no-unused-vars
-      } catch (err) {
-        // Error already shown
+  // Handle edit click
+  const handleEditClick = useCallback((customer) => {
+    setEditingCustomer(customer)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  // Handle delete click
+  const handleDeleteClick = useCallback((customer) => {
+    setCustomerToDelete(customer)
+  }, [])
+
+  // Confirm delete
+  const confirmDelete = useCallback(async () => {
+    if (!customerToDelete) return
+    
+    try {
+      await deleteCustomer(customerToDelete.id)
+      if (selectedCustomerId === customerToDelete.id) {
+        setSelectedCustomerId(null)
       }
+      await loadData()
+      toast.success('Customer deleted')
+    } catch (err) {
+      console.error('Delete customer error:', err)
+      toast.error('Failed to delete customer')
+    } finally {
+      setCustomerToDelete(null)
     }
-  }
+  }, [customerToDelete, deleteCustomer, selectedCustomerId, loadData])
 
-  const handleCancelEdit = () => {
+  // Handle cancel edit
+  const handleCancelEdit = useCallback(() => {
     setEditingCustomer(null)
-    setFormData({ name: "", phone: "", location: "" })
+  }, [])
+
+  // Handle sort
+  const handleSort = useCallback((column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }, [sortColumn, sortDirection])
+
+  // Filter and sort customers
+  const filteredCustomers = useCallback(() => {
+    let filtered = customers.filter(customer => {
+      // Search filter
+      const matchesSearch = 
+        customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.phone?.includes(searchTerm) ||
+        customer.location?.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      if (!matchesSearch) return false
+      
+      // Status filter
+      if (statusFilter !== 'all') {
+        const status = getCustomerStatus(customer)
+        if (status !== statusFilter) return false
+      }
+      
+      return true
+    })
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal, bVal
+      
+      switch (sortColumn) {
+        case 'name':
+          aVal = a.name?.toLowerCase() || ''
+          bVal = b.name?.toLowerCase() || ''
+          break
+        case 'phone':
+          aVal = a.phone || ''
+          bVal = b.phone || ''
+          break
+        case 'location':
+          aVal = a.location?.toLowerCase() || ''
+          bVal = b.location?.toLowerCase() || ''
+          break
+        case 'orders':
+          aVal = getCustomerStats(a).totalOrders
+          bVal = getCustomerStats(b).totalOrders
+          break
+        default:
+          aVal = a.name?.toLowerCase() || ''
+          bVal = b.name?.toLowerCase() || ''
+      }
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+
+    return filtered
+  }, [customers, searchTerm, statusFilter, sortColumn, sortDirection, getCustomerStatus, getCustomerStats])
+
+  // Get selected customer
+  const selectedCustomer = customers?.find?.(c => c.id === selectedCustomerId)
+
+  // Get selected customer's sales
+  const selectedCustomerSales = allSales.filter(s => s.customer_id === selectedCustomerId)
+
+  // Status badge component
+  const StatusBadge = ({ status }) => {
+    const config = {
+      new: { label: 'New', class: 'bg-blue-100 text-blue-700 border-blue-200', icon: '🔵' },
+      active: { label: 'Active', class: 'bg-green-100 text-green-700 border-green-200', icon: '🟢' },
+      'at-risk': { label: 'At Risk', class: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: '🟡' },
+      dormant: { label: 'Dormant', class: 'bg-red-100 text-red-700 border-red-200', icon: '🔴' }
+    }
+    
+    const { label, class: className, icon } = config[status] || config.new
+    
+    return (
+      <span className={`text-xs px-2 py-1 rounded-full border ${className}`}>
+        {icon} {label}
+      </span>
+    )
   }
 
-  const selectedCustomer = customers?.find?.(c => c.id === selectedCustomerId)
+  // Sort icon component
+  const SortIcon = ({ column }) => {
+    if (sortColumn !== column) return <ChevronUp className="w-4 h-4 text-muted-foreground/30" />
+    return sortDirection === 'asc' 
+      ? <ChevronUp className="w-4 h-4 text-primary" />
+      : <ChevronDown className="w-4 h-4 text-primary" />
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
       
       {/* Page Header */}
-      <div className="flex items-center gap-3 pb-4 border-b border-border/50">
-        <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center shadow-sm">
-          <Users className="w-5 h-5 text-primary" />
+      <div className="flex items-center justify-between pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center shadow-sm">
+            <Users className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gradient">Customers</h1>
+            <p className="text-sm text-muted-foreground">Manage your customer base and view sales</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gradient">Customers</h1>
-          <p className="text-sm text-muted-foreground">Manage your customer base</p>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="card p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, phone, or location..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 rounded-xl"
+            />
+          </div>
+          
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full md:w-48 rounded-xl">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="new">🔵 New</SelectItem>
+              <SelectItem value="active">🟢 Active</SelectItem>
+              <SelectItem value="at-risk">🟡 At Risk</SelectItem>
+              <SelectItem value="dormant">🔴 Dormant</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {/* Add Customer Button */}
+          <Button 
+            onClick={() => { setEditingCustomer({}); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+            className="btn-primary-gradient rounded-xl hover-lift-subtle"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Add Customer
+          </Button>
         </div>
       </div>
 
       {/* Add/Edit Form */}
-      <Card className="rounded-2xl border bg-card shadow-soft animate-slide-up">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-            {editingCustomer ? <Pencil className="w-5 h-5 text-primary" /> : <UserPlus className="w-5 h-5 text-primary" />}
-            {editingCustomer ? 'Edit Customer' : 'Add Customer'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium">Name</Label>
-                <Input id="name" name="name" placeholder="Full name" value={formData.name} onChange={handleInputChange} className="input-enhanced rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
-                <Input id="phone" name="phone" placeholder="+254..." value={formData.phone} onChange={handleInputChange} className="input-enhanced rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location" className="text-sm font-medium">Location</Label>
-                <Input id="location" name="location" placeholder="Address / area" value={formData.location} onChange={handleInputChange} className="input-enhanced rounded-xl" />
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Button type="submit" className="btn-primary-gradient rounded-xl px-6" disabled={loading}>
-                {editingCustomer ? 'Update Customer' : 'Add Customer'}
-              </Button>
-              {editingCustomer && (
-                <Button type="button" variant="outline" onClick={handleCancelEdit} className="rounded-xl px-6 border-border">Cancel</Button>
-              )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Sales Panel */}
-      {selectedCustomerId && selectedCustomer && (
-        <div className="animate-slide-up">
-          <CustomerSales customer={selectedCustomer} onClose={() => setSelectedCustomerId(null)} />
+      {editingCustomer && (
+        <div className="card animate-fade-in-up">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              {editingCustomer?.id ? <Pencil className="w-5 h-5 text-primary" /> : <UserPlus className="w-5 h-5 text-primary" />}
+              {editingCustomer?.id ? 'Edit Customer' : 'Add Customer'}
+            </h2>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleCancelEdit}
+              className="hover-lift-subtle"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </Button>
+          </div>
+          <CustomerForm
+            onSubmit={handleSubmit}
+            editingCustomer={editingCustomer?.id ? editingCustomer : null}
+            onCancel={handleCancelEdit}
+            loading={loading}
+          />
         </div>
       )}
 
-      {/* Customer Cards */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4 text-foreground">All Customers ({customers?.length || 0})</h2>
+      {/* ✅ Customer Sales Panel - Shows ALL sales for selected customer */}
+      {selectedCustomerId && selectedCustomer && (
+        <div className="card animate-fade-in-up">
+          <CustomerSales 
+            customer={selectedCustomer} 
+            sales={selectedCustomerSales}
+            onClose={() => setSelectedCustomerId(null)} 
+          />
+        </div>
+      )}
+
+      {/* Customers Table */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">
+            All Customers ({filteredCustomers().length})
+          </h2>
+        </div>
         
-        {loading && <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div></div>}
-        
-        {!loading && customers?.length === 0 && (
-          <div className="text-center text-muted-foreground py-12 animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-3 flex items-center justify-center">
-              <Users className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <p className="text-lg font-medium mb-2">No customers yet</p>
-            <p className="text-sm">Add your first customer above, or seed sample data.</p>
-            <Button 
-              onClick={async () => {
-                // Seed sample customers directly to Supabase
-                const { supabase } = await import('@/lib/supabaseClient')
-                await supabase.from('customers').insert([
-                  { name: 'John Mwangi', phone: '+254712345678', location: 'Nairobi CBD' },
-                  { name: 'Sarah Ochieng', phone: '+254798765432', location: 'Westlands' },
-                  { name: 'David Kamau', phone: '+254711223344', location: 'Kilimani' }
-                ])
-                toast.success('Sample customers added!')
-                loadCustomers()
-              }} 
-              variant="outline" 
-              className="mt-4 rounded-xl"
-            >
-              Add Sample Customers
-            </Button>
-          </div>
-        )}
-        
-        {!loading && customers?.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {customers.map((customer, index) => (
-              <div
-                key={customer.id}
-                onClick={() => handleCardClick(customer.id)}
-                className={`cursor-pointer rounded-2xl border bg-card p-5 transition-all duration-300 hover:shadow-elevated hover:border-primary/30 hover:-translate-y-0.5 ${selectedCustomerId === customer.id ? 'ring-2 ring-primary/30 border-primary shadow-elevated' : 'border-border/50'}`}
-                style={{ animation: `fadeIn 0.4s ease-out ${index * 0.05}s both` }}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-linear-to-br from-primary/15 to-primary-light/15 flex items-center justify-center shrink-0 shadow-sm">
-                    <Users className="w-6 h-6 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground truncate">{customer.name}</h3>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-                      <Phone className="w-3.5 h-3.5 text-primary" />
-                      <span className="truncate">{customer.phone}</span>
-                    </div>
-                    {customer.location && (
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
-                        <MapPin className="w-3.5 h-3.5 text-primary" />
-                        <span className="truncate">{customer.location}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
-                  <Button size="sm" variant="outline" onClick={(e) => handleEditClick(customer, e)} className="flex-1 h-8 text-xs rounded-lg">
-                    <Pencil className="w-3 h-3 mr-1" /> Edit
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={(e) => handleDeleteClick(customer, e)} className="flex-1 h-8 text-xs rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
-                    <Trash2 className="w-3 h-3 mr-1" /> Delete
-                  </Button>
-                </div>
-              </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-14 bg-muted rounded-xl animate-pulse" />
             ))}
           </div>
         )}
+        
+        {/* Empty State */}
+        {!loading && filteredCustomers().length === 0 && (
+          <div className="text-center text-muted-foreground py-12">
+            <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-3 flex items-center justify-center">
+              <Users className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <p className="text-lg font-medium mb-2">
+              {searchTerm || statusFilter !== 'all' 
+                ? 'No customers match your filters' 
+                : 'No customers yet'}
+            </p>
+            <p className="text-sm mb-4">
+              {searchTerm || statusFilter !== 'all'
+                ? 'Try adjusting your search or filters'
+                : 'Add your first customer to get started'}
+            </p>
+            {!searchTerm && statusFilter === 'all' && (
+              <Button 
+                onClick={() => { setEditingCustomer({}); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                className="btn-primary-gradient rounded-xl"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add Customer
+              </Button>
+            )}
+          </div>
+        )}
+        
+        {/* Table */}
+        {!loading && filteredCustomers().length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border/20">
+                  <th 
+                    className="text-left py-3 px-4 font-medium text-muted-foreground cursor-pointer hover:text-primary transition-colors hover-lift-subtle"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Customer
+                      <SortIcon column="name" />
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left py-3 px-4 font-medium text-muted-foreground cursor-pointer hover:text-primary transition-colors hover-lift-subtle"
+                    onClick={() => handleSort('phone')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Phone
+                      <SortIcon column="phone" />
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left py-3 px-4 font-medium text-muted-foreground cursor-pointer hover:text-primary transition-colors hover-lift-subtle"
+                    onClick={() => handleSort('location')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Location
+                      <SortIcon column="location" />
+                    </div>
+                  </th>
+                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">
+                    Status
+                  </th>
+                  <th 
+                    className="text-right py-3 px-4 font-medium text-muted-foreground cursor-pointer hover:text-primary transition-colors hover-lift-subtle"
+                    onClick={() => handleSort('orders')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      Orders
+                      <SortIcon column="orders" />
+                    </div>
+                  </th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCustomers().map((customer) => {
+                  const status = getCustomerStatus(customer)
+                  const stats = getCustomerStats(customer)
+                  
+                  return (
+                    <tr 
+                      key={customer.id} 
+                      className="border-b border-border/10 hover:bg-primary/5 transition-colors cursor-pointer group"
+                      onClick={() => handleViewCustomer(customer.id)}
+                    >
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center">
+                            <span className="text-sm font-semibold text-primary">
+                              {customer.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-medium text-foreground">{customer.name}</div>
+                            {stats.lastPurchase && (
+                              <div className="text-xs text-muted-foreground">
+                                Last: {new Date(stats.lastPurchase).toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>{customer.phone}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>{customer.location || '—'}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <StatusBadge status={status} />
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <div className="font-medium text-foreground">{stats.totalOrders}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {stats.totalSpent > 0 ? `KSh ${stats.totalSpent.toLocaleString()}` : '—'}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary hover-lift-subtle"
+                            onClick={(e) => { e.stopPropagation(); handleEditClick(customer) }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive hover-lift-subtle"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(customer) }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {customerToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="card max-w-md w-full shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+              </div>
+              <h3 className="text-lg font-semibold">Delete Customer?</h3>
+            </div>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to delete <strong>{customerToDelete.name}</strong>? 
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setCustomerToDelete(null)}
+                className="rounded-xl px-6"
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={confirmDelete}
+                className="rounded-xl px-6"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

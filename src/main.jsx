@@ -1,24 +1,29 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-// ✅ CHANGE: Import HashRouter instead of BrowserRouter
+// ✅ HashRouter for GitHub Pages compatibility
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import './index.css'
 
+// Context & Providers
 import { DataProvider } from '@/context/DataContext'
-import Layout from '@/components/layouts/Layout'
+
+// ✅ New Navbar Component (standalone)
+import Navbar from '@/components/Navbar'
+
+// Pages
 import Dashboard from '@/pages/Dashboard'
 import Customers from '@/pages/customers/Customers'
 import Stock from '@/pages/stock/Stock'
 import Sales from '@/pages/sales/Sales'
 
-// Create QueryClient
+// Create QueryClient for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60,
-      retry: 1
+      staleTime: 1000 * 60, // Cache data for 1 minute
+      retry: 1 // Retry failed requests once
     }
   }
 })
@@ -27,17 +32,25 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <DataProvider>
-        {/* ✅ CHANGE: Use HashRouter (no basename needed for GitHub Pages) */}
+        {/* ✅ HashRouter for GitHub Pages (no basename needed) */}
         <HashRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="customers" element={<Customers />} />
-              <Route path="stock" element={<Stock />} />
-              <Route path="sales" element={<Sales />} />
-            </Route>
-          </Routes>
-          <Toaster />
+          {/* ✅ Navbar - Standalone, sticky top navigation */}
+          <Navbar />
+          
+          {/* ✅ Page Content - Full width, with padding */}
+          <main className="min-h-screen bg-background">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/customers" element={<Customers />} />
+                <Route path="/stock" element={<Stock />} />
+                <Route path="/sales" element={<Sales />} />
+              </Routes>
+            </div>
+          </main>
+          
+          {/* ✅ Toast Notifications */}
+          <Toaster position="top-right" richColors closeButton />
         </HashRouter>
       </DataProvider>
     </QueryClientProvider>
