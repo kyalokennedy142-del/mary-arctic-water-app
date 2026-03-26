@@ -1,7 +1,15 @@
 "use client"
 
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Users, Package, ShoppingCart, Menu, X } from 'lucide-react'
+import { 
+  LayoutDashboard, 
+  Users, 
+  Package, 
+  ShoppingCart, 
+  FileText,
+  Menu, 
+  X 
+} from 'lucide-react'
 import { useState } from 'react'
 
 export default function Navbar() {
@@ -12,26 +20,27 @@ export default function Navbar() {
     { 
       path: '/', 
       label: 'Dashboard', 
-      icon: LayoutDashboard,
-      color: 'from-blue-500 to-cyan-500'
+      icon: LayoutDashboard 
     },
     { 
       path: '/customers', 
       label: 'Customers', 
-      icon: Users,
-      color: 'from-green-500 to-emerald-500'
+      icon: Users 
     },
     { 
       path: '/stock', 
       label: 'Stock', 
-      icon: Package,
-      color: 'from-orange-500 to-amber-500'
+      icon: Package 
     },
     { 
       path: '/sales', 
       label: 'Sales', 
-      icon: ShoppingCart,
-      color: 'from-purple-500 to-pink-500'
+      icon: ShoppingCart 
+    },
+    { 
+      path: '/reports', 
+      label: 'Reports', 
+      icon: FileText 
     },
   ]
 
@@ -44,13 +53,13 @@ export default function Navbar() {
             
             {/* Logo Section */}
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary-light/20 flex items-center justify-center shadow-sm hover-lift-subtle">
+              <div className="w-9 h-9 rounded-xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center shadow-sm hover-lift-subtle">
                 <span className="text-lg">💧</span>
               </div>
               <span className="text-xl font-bold text-gradient hidden sm:block">AquaBiz</span>
             </div>
             
-            {/* Desktop Navigation */}
+            {/* Desktop Navigation - Hidden on mobile */}
             <div className="hidden md:flex items-center gap-1">
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path
@@ -65,13 +74,13 @@ export default function Navbar() {
                       text-sm font-medium transition-all duration-200
                       hover-lift-subtle
                       ${isActive 
-                        ? 'bg-gradient-to-r from-primary to-primary-light text-primary-foreground shadow-md shadow-primary/25' 
-                        : 'text-foreground/70 hover:text-primary hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary-light/10 hover:shadow-sm'
+                        ? 'bg-linear-to-r from-primary to-primary-light text-primary-foreground shadow-md shadow-primary/25' 
+                        : 'text-foreground/70 hover:text-primary hover:bg-linear-to-r hover:from-primary/10 hover:to-primary-light/10 hover:shadow-sm'
                       }
                     `}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? 'text-primary-foreground' : ''}`} />
-                    <span>{item.label}</span>
+                    <span className="hidden lg:inline">{item.label}</span>
                     
                     {/* Active indicator dot */}
                     {isActive && (
@@ -82,10 +91,11 @@ export default function Navbar() {
               })}
             </div>
 
-            {/* Mobile Menu Button */}
+            {/* Mobile Menu Button - Only visible on mobile/tablet */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors hover-lift-subtle"
+              className="md:hidden p-2 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors hover-lift-subtle touch-target"
+              aria-label="Toggle menu"
             >
               {mobileMenuOpen ? (
                 <X className="w-5 h-5" />
@@ -96,7 +106,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Navigation Menu */}
+        {/* Mobile Navigation Menu - Only shown when open */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border/30 bg-white/95 backdrop-blur-md animate-fade-in-down">
             <div className="px-4 py-3 space-y-2">
@@ -112,17 +122,15 @@ export default function Navbar() {
                     className={`
                       flex items-center gap-3 px-4 py-3 rounded-xl
                       text-sm font-medium transition-all duration-200
-                      hover-lift-subtle
+                      hover-lift-subtle touch-target
                       ${isActive 
-                        ? 'bg-gradient-to-r from-primary to-primary-light text-primary-foreground shadow-md' 
-                        : 'text-foreground/70 hover:text-primary hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary-light/10'
+                        ? 'bg-linear-to-r from-primary to-primary-light text-primary-foreground shadow-md' 
+                        : 'text-foreground/70 hover:text-primary hover:bg-linear-to-r hover:from-primary/10 hover:to-primary-light/10'
                       }
                     `}
                   >
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      isActive 
-                        ? 'bg-primary-foreground/20' 
-                        : 'bg-primary/10'
+                      isActive ? 'bg-primary-foreground/20' : 'bg-primary/10'
                     }`}>
                       <Icon className={`w-4 h-4 ${isActive ? 'text-primary-foreground' : 'text-primary'}`} />
                     </div>

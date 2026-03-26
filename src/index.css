@@ -320,4 +320,311 @@ input[type="number"][name="quantity"] {
 
 .animate-fade-in-down {
   animation: fadeInDown 0.2s ease-out forwards;
+}/* ============================================
+   📱 RESPONSIVE UTILITIES
+   ============================================ */
+
+/* Container max-widths */
+.container-mobile {
+  @apply max-w-sm mx-auto px-4;
 }
+
+.container-tablet {
+  @apply max-w-3xl mx-auto px-6;
+}
+
+.container-desktop {
+  @apply max-w-7xl mx-auto px-8;
+}
+
+/* Responsive text sizes */
+.text-responsive-sm {
+  @apply text-sm sm:text-base md:text-lg;
+}
+
+.text-responsive-base {
+  @apply text-base sm:text-lg md:text-xl lg:text-2xl;
+}
+
+.text-responsive-lg {
+  @apply text-lg sm:text-xl md:text-2xl lg:text-3xl;
+}
+
+/* Responsive padding */
+.padding-responsive {
+  @apply p-4 sm:p-6 md:p-8 lg:p-10;
+}
+
+.padding-responsive-x {
+  @apply px-4 sm:px-6 md:px-8 lg:px-10;
+}
+
+.padding-responsive-y {
+  @apply py-4 sm:py-6 md:py-8 lg:py-10;
+}
+
+/* Responsive spacing */
+.spacing-responsive {
+  @apply space-y-4 sm:space-y-6 md:space-y-8;
+}
+
+/* Responsive grid */
+.grid-responsive-2 {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+}
+
+.grid-responsive-3 {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6;
+}
+
+.grid-responsive-4 {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6;
+}
+
+/* Responsive card layout */
+.card-responsive {
+  @apply p-4 sm:p-6 md:p-8;
+}
+
+/* Responsive navigation */
+.nav-responsive {
+  @apply flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4;
+}
+
+/* Responsive table */
+.table-responsive {
+  @apply overflow-x-auto;
+}
+
+.table-responsive table {
+  @apply min-w-full;
+}
+
+/* Hide/show based on device */
+@media (max-width: 639px) {
+  .hidden-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .hidden-tablet {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hidden-desktop {
+    display: none !important;
+  }
+}
+
+/* Mobile-first utilities */
+@media (max-width: 767px) {
+  /* Stack everything vertically */
+  .responsive-stack {
+    @apply flex flex-col;
+  }
+  
+  /* Full width buttons */
+  .btn-full-mobile {
+    @apply w-full;
+  }
+  
+  /* Smaller text on mobile */
+  .text-sm-mobile {
+    @apply text-sm;
+  }
+  
+  /* Hide complex elements on mobile */
+  .complex-desktop-only {
+    display: none;
+  }
+}
+
+/* Tablet utilities */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .tablet-grid-2 {
+    @apply grid grid-cols-2;
+  }
+  
+  .tablet-hide-sidebar {
+    display: none;
+  }
+}
+
+/* Desktop utilities */
+@media (min-width: 1024px) {
+  .desktop-grid-3 {
+    @apply grid grid-cols-3;
+  }
+  
+  .desktop-grid-4 {
+    @apply grid grid-cols-4;
+  }
+  
+  .desktop-sidebar {
+    @apply block;
+  }
+}
+
+/* Touch-friendly sizes for mobile */
+@media (max-width: 767px) {
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px]; /* Apple HIG recommendation */
+  }
+  
+  .touch-spacing {
+    @apply p-4;
+  }
+}
+
+/* Responsive images */
+.img-responsive {
+  @apply w-full h-auto object-cover;
+}
+
+.img-responsive-cover {
+  @apply w-full h-48 sm:h-64 md:h-80 object-cover;
+}
+
+/* Responsive shadows */
+.shadow-responsive {
+  @apply shadow-sm sm:shadow-md md:shadow-lg;
+}
+
+/* Responsive borders */
+.border-responsive {
+  @apply border sm:border-2;
+}
+
+/* Responsive radius */
+.radius-responsive {
+  @apply rounded-lg sm:rounded-xl md:rounded-2xl;
+}
+
+/* Smooth transitions for responsive changes */
+@media (prefers-reduced-motion: no-preference) {
+  .responsive-transition {
+    @apply transition-all duration-300 ease-in-out;
+  }
+}
+
+/* ============================================
+   🎯 AQUABIZ SPECIFIC RESPONSIVE CLASSES
+   ============================================ */
+
+/* Dashboard stats grid */
+.dashboard-stats-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6;
+}
+
+/* Reports charts grid */
+.reports-charts-grid {
+  @apply grid grid-cols-1 lg:grid-cols-2 gap-6;
+}
+
+/* Customers table */
+.customers-table-responsive {
+  @apply overflow-x-auto -mx-4 sm:mx-0;
+}
+
+/* Stock cards grid */
+.stock-cards-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+}
+
+/* Sales form layout */
+.sales-form-responsive {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
+}
+
+/* Navigation responsive */
+.navbar-responsive {
+  @apply flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4;
+}
+
+/* Page header responsive */
+.page-header-responsive {
+  @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b;
+}
+
+/* Card stack for mobile */
+.card-stack-mobile {
+  @apply flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4;
+}
+
+/* Hide scrollbar on mobile but keep functionality */
+.scrollbar-mobile-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-mobile-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile menu overlay */
+.mobile-menu-overlay {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50 lg:hidden;
+}
+
+/* Desktop sidebar */
+.desktop-sidebar {
+  @apply hidden lg:block lg:w-64 lg:fixed lg:inset-y-0;
+}
+
+/* Main content area */
+.main-content-responsive {
+  @apply lg:pl-64;
+}
+
+/* Responsive font sizes for headings */
+.h1-responsive {
+  @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold;
+}
+
+.h2-responsive {
+  @apply text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold;
+}
+
+.h3-responsive {
+  @apply text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold;
+}
+
+/* Responsive spacing utilities */
+.space-responsive-sm {
+  @apply space-y-2 sm:space-y-3 md:space-y-4;
+}
+
+.space-responsive-md {
+  @apply space-y-4 sm:space-y-6 md:space-y-8;
+}
+
+.space-responsive-lg {
+  @apply space-y-6 sm:space-y-8 md:space-y-10 lg:space-y-12;
+}
+
+/* Responsive padding utilities */
+.px-responsive {
+  @apply px-4 sm:px-6 md:px-8 lg:px-10;
+}
+
+.py-responsive {
+  @apply py-4 sm:py-6 md:py-8 lg:py-10;
+}
+
+.p-responsive {
+  @apply p-4 sm:p-6 md:p-8 lg:p-10;
+}
+
+/* Responsive gap utilities */
+.gap-responsive {
+  @apply gap-3 sm:gap-4 md:gap-6 lg:gap-8;
+}
+
+/* Responsive container */
+.container-responsive {
+  @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+

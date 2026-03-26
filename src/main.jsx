@@ -9,7 +9,7 @@ import './index.css'
 // Context & Providers
 import { DataProvider } from '@/context/DataContext'
 
-// ✅ New Navbar Component (standalone)
+// ✅ Navbar Component (standalone, sticky top)
 import Navbar from '@/components/Navbar'
 
 // Pages
@@ -17,6 +17,7 @@ import Dashboard from '@/pages/Dashboard'
 import Customers from '@/pages/customers/Customers'
 import Stock from '@/pages/stock/Stock'
 import Sales from '@/pages/sales/Sales'
+import Reports from '@/pages/reports/Reports'
 
 // Create QueryClient for React Query
 const queryClient = new QueryClient({
@@ -34,10 +35,10 @@ createRoot(document.getElementById('root')).render(
       <DataProvider>
         {/* ✅ HashRouter for GitHub Pages (no basename needed) */}
         <HashRouter>
-          {/* ✅ Navbar - Standalone, sticky top navigation */}
+          {/* ✅ Navbar - Sticky top navigation */}
           <Navbar />
           
-          {/* ✅ Page Content - Full width, with padding */}
+          {/* ✅ Main Content Area - Responsive container */}
           <main className="min-h-screen bg-background">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
               <Routes>
@@ -45,11 +46,12 @@ createRoot(document.getElementById('root')).render(
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/stock" element={<Stock />} />
                 <Route path="/sales" element={<Sales />} />
+                <Route path="/reports" element={<Reports />} />
               </Routes>
             </div>
           </main>
           
-          {/* ✅ Toast Notifications */}
+          {/* ✅ Toast Notifications - Top right, rich colors */}
           <Toaster position="top-right" richColors closeButton />
         </HashRouter>
       </DataProvider>

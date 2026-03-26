@@ -13,7 +13,7 @@ export default function PageLayout({
       <div className="flex items-center justify-between pb-4 border-b border-border/50">
         <div className="flex items-center gap-3">
           {Icon && (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary-light/20 flex items-center justify-center shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center shadow-sm">
               <Icon className="w-5 h-5 text-primary" />
             </div>
           )}
