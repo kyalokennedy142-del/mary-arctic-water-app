@@ -1,3 +1,4 @@
+// src/context/DataContext.jsx
 import { createContext, useContext, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { toast } from 'sonner'
@@ -42,36 +43,60 @@ export function DataProvider({ children }) {
 
   const createCustomer = async (customerData) => {
     try {
+      console.log('📦 Creating customer:', customerData)
       const { data, error } = await supabase
         .from('customers')
         .insert([{ ...customerData }])
         .select()
         .single()
       
-      if (error) throw error
+      if (error) {
+        console.error('❌ Supabase create error:', error)
+        throw error
+      }
+      console.log('✅ Customer created:', data)
       toast.success('Customer added successfully!')
       return data
     } catch (err) {
-      console.error('Error creating customer:', err)
+      console.error('❌ createCustomer error:', err)
       toast.error('Failed to add customer: ' + err.message)
       throw err
     }
   }
 
+  // ✅ FIXED: Single updateCustomer with ID validation
   const updateCustomer = async (id, customerData) => {
+    console.log('📦 DataContext updateCustomer called:', { id, customerData })
+    
+    // ✅ Validate ID before proceeding
+    if (!id || id === 'undefined' || id === 'null' || id === null) {
+      console.error('❌ Invalid customer ID:', id)
+      throw new Error('Invalid customer ID: ' + id)
+    }
+    
     try {
       const { data, error } = await supabase
         .from('customers')
-        .update(customerData)
+        .update({
+          ...customerData,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id)
         .select()
         .single()
       
-      if (error) throw error
+      console.log('📦 Supabase update response:', { data, error })
+      
+      if (error) {
+        console.error('❌ Supabase update error:', error)
+        throw new Error(error.message)
+      }
+      
+      console.log('✅ Customer updated:', data)
       toast.success('Customer updated successfully!')
       return data
     } catch (err) {
-      console.error('Error updating customer:', err)
+      console.error('❌ updateCustomer error:', err)
       toast.error('Failed to update customer: ' + err.message)
       throw err
     }
@@ -79,6 +104,7 @@ export function DataProvider({ children }) {
 
   const deleteCustomer = async (id) => {
     try {
+      console.log('🗑️ Deleting customer:', id)
       const { error } = await supabase
         .from('customers')
         .delete()
@@ -88,7 +114,7 @@ export function DataProvider({ children }) {
       toast.success('Customer deleted successfully!')
       return true
     } catch (err) {
-      console.error('Error deleting customer:', err)
+      console.error('❌ deleteCustomer error:', err)
       toast.error('Failed to delete customer: ' + err.message)
       throw err
     }
@@ -223,6 +249,8 @@ export function DataProvider({ children }) {
 
   const createSale = async (saleData) => {
     try {
+      console.log('🛒 Creating sale:', saleData)
+      
       // Create sale record
       const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -235,10 +263,11 @@ export function DataProvider({ children }) {
       // Reduce stock
       await reduceStock(saleData.product_id, saleData.quantity_sold)
 
+      console.log('✅ Sale recorded:', sale)
       toast.success('Sale recorded and stock updated!')
       return sale
     } catch (err) {
-      console.error('Error creating sale:', err)
+      console.error('❌ createSale error:', err)
       toast.error('Failed to record sale: ' + err.message)
       throw err
     }

@@ -1,19 +1,17 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
+import { UserPlus, Pencil, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { UserPlus, Pencil, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { validateCRUD, BUSINESS_RULES } from '@/config/crudOperations'
 
 export default function CustomerForm({ 
   onSubmit, 
   editingCustomer, 
   onCancel,
-  loading = false,
-  autoFillData = null 
+  loading = false 
 }) {
   const [form, setForm] = useState({ name: '', phone: '', location: '' })
   const [errors, setErrors] = useState({})
@@ -31,17 +29,6 @@ export default function CustomerForm({
     }
   }, [editingCustomer])
 
-  // Auto-fill from sales data if provided
-  useEffect(() => {
-    if (autoFillData?.name || autoFillData?.phone) {
-      setForm(prev => ({
-        ...prev,
-        name: autoFillData.name || prev.name,
-        phone: autoFillData.phone || prev.phone
-      }))
-    }
-  }, [autoFillData])
-
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target
     setForm(prev => ({ ...prev, [name]: value }))
@@ -54,20 +41,17 @@ export default function CustomerForm({
   const validateForm = useCallback(() => {
     const newErrors = {}
     
-    // CRUD validation
-    const crudValidation = validateCRUD('customers:create', form)
-    if (!crudValidation.valid) {
-      newErrors.general = crudValidation.error
-    }
-    
-    // Phone format validation (Kenyan format)
-    if (form.phone && !BUSINESS_RULES.customerPhoneFormat.test(form.phone)) {
-      newErrors.phone = 'Phone must be Kenyan format: +254XXXXXXXXX'
-    }
-    
-    // Name validation
-    if (form.name && form.name.length < 2) {
+    // ✅ Name validation
+    if (!form.name || form.name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters'
+    }
+    
+    // ✅ Phone validation - FIXED: Use inline regex, not external reference
+    const phoneRegex = /^\+?254\d{9}$/
+    const cleanPhone = form.phone.replace(/\s/g, '')
+    
+    if (!form.phone || !phoneRegex.test(cleanPhone)) {
+      newErrors.phone = 'Phone must be Kenyan format: +254XXXXXXXXX'
     }
     
     setErrors(newErrors)
@@ -76,24 +60,29 @@ export default function CustomerForm({
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault()
+    console.log('📝 Form submit triggered', form)
     
     if (!validateForm()) {
-      if (errors.general) {
-        toast.error(errors.general)
-      }
+      console.log('❌ Validation failed', errors)
+      toast.error('Please fix the errors in the form')
       return
     }
 
     setIsSubmitting(true)
+    console.log('🔄 Submitting to onSubmit...', form)
     
     try {
-      await onSubmit(form)
-      toast.success(editingCustomer ? 'Customer updated!' : 'Customer added!')
-      setForm({ name: '', phone: '', location: '' })
-      setErrors({})
-    // eslint-disable-next-line no-unused-vars
+      const success = await onSubmit(form)
+      console.log('✅ onSubmit returned:', success)
+      
+      if (success !== false) {
+        toast.success(editingCustomer ? 'Customer updated!' : 'Customer added!')
+        setForm({ name: '', phone: '', location: '' })
+        setErrors({})
+      }
     } catch (err) {
-      toast.error('Failed to save customer')
+      console.error('❌ Form submit error:', err)
+      toast.error('Failed to save customer: ' + err.message)
     } finally {
       setIsSubmitting(false)
     }
@@ -105,24 +94,10 @@ export default function CustomerForm({
     onCancel?.()
   }, [onCancel])
 
-  // Keyboard shortcuts: Ctrl+Enter to save, Esc to cancel
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && editingCustomer) {
-        handleCancel()
-      }
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        handleSubmit(e)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editingCustomer, handleCancel, handleSubmit])
-
   return (
-    <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border p-6 space-y-5">
+    <form onSubmit={handleSubmit} className="card p-6 space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-2 pb-3 border-b border-border/50">
+      <div className="flex items-center gap-2 pb-3 border-b border-border/20">
         {editingCustomer ? (
           <>
             <Pencil className="w-4 h-4 text-primary" />
@@ -137,7 +112,7 @@ export default function CustomerForm({
       </div>
       
       {/* Form Fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Name */}
         <div className="space-y-1.5">
           <Label htmlFor="name">Name <span className="text-destructive">*</span></Label>
@@ -147,10 +122,15 @@ export default function CustomerForm({
             placeholder="Full name"
             value={form.name}
             onChange={handleInputChange}
-            className={`rounded-xl ${errors.name ? 'border-destructive focus:ring-destructive/20' : ''}`}
-            required
+            className={`rounded-xl ${errors.name ? 'border-destructive' : ''}`}
+            disabled={isSubmitting || loading}
           />
-          {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+          {errors.name && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {errors.name}
+            </p>
+          )}
         </div>
         
         {/* Phone */}
@@ -159,13 +139,18 @@ export default function CustomerForm({
           <Input
             id="phone"
             name="phone"
-            placeholder="+254XXXXXXXXX"
+            placeholder="+254712345678"
             value={form.phone}
             onChange={handleInputChange}
-            className={`rounded-xl ${errors.phone ? 'border-destructive focus:ring-destructive/20' : ''}`}
-            required
+            className={`rounded-xl ${errors.phone ? 'border-destructive' : ''}`}
+            disabled={isSubmitting || loading}
           />
-          {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+          {errors.phone && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {errors.phone}
+            </p>
+          )}
         </div>
         
         {/* Location */}
@@ -178,16 +163,10 @@ export default function CustomerForm({
             value={form.location}
             onChange={handleInputChange}
             className="rounded-xl"
+            disabled={isSubmitting || loading}
           />
         </div>
       </div>
-
-      {/* General Error */}
-      {errors.general && (
-        <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
-          {errors.general}
-        </p>
-      )}
 
       {/* Actions */}
       <div className="flex gap-3 pt-2">
@@ -218,12 +197,6 @@ export default function CustomerForm({
           </Button>
         )}
       </div>
-      
-      {/* Keyboard Shortcuts Hint */}
-      <p className="text-xs text-muted-foreground pt-2 border-t border-border/30">
-        <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">Ctrl+Enter</kbd> to save, 
-        <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] ml-1">Esc</kbd> to cancel
-      </p>
     </form>
   )
 }

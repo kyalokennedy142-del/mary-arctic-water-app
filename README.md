@@ -1,36 +1,41 @@
-# # AquaBiz - Water Business Management System
+# 💧 AquaBiz - Mary Arctic Water Management System
 
-A modern web application for managing water business operations including customers, inventory, and sales tracking.
+A beautiful, responsive business management system for Mary Arctic Water.
 
-## Features
+## ✨ Features
 
-- 📊 Dashboard with business analytics
-- 👥 Customer management
-- 📦 Stock/inventory tracking
-- 💰 Sales recording and tracking
-- 📱 Responsive design
-- 🎨 Beautiful UI with Tailwind CSS
+- 📊 Dashboard with real-time trends & low stock alerts
+- 👥 Customers page with sales history & segmentation
+- 📦 Stock inventory with category filters & alerts
+- 🛒 Sales recording with auto stock reduction
+- 📈 Reports page with KPIs, charts & CSV export
+- 🎨 Beautiful water-themed UI (no solid borders!)
+- 📱 Fully responsive: mobile, tablet, desktop
+- 🔄 Real-time data updates
 
-## Tech Stack
+## 🚀 Live Demo
 
-- **Frontend:** React + Vite
-- **Styling:** Tailwind CSS + shadcn/ui
-- **State Management:** TanStack Query (React Query)
-- **Routing:** React Router
-- **Icons:** Lucide React
-- **Database:** LocalStorage (will migrate to Supabase)
+[https://yourusername.github.io/mary-arctic-water-app/](https://yourusername.github.io/mary-arctic-water-app/)
 
-## Installation
+## 🛠️ Built With
+
+- React + Vite
+- Tailwind CSS v4
+- Supabase (backend)
+- React Query (data fetching)
+- Lucide React (icons)
+- Sonner (notifications)
+
+## 📱 Responsive Design
+
+- Mobile-first approach
+- Touch-friendly targets (44px min)
+- Adaptive grids (1→2→4 columns)
+- Hamburger menu on mobile
+- Hover effects on desktop
+
+## 🔧 Local Development
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/aquabiz.git
-
-# Navigate to project
-cd aquabiz
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev

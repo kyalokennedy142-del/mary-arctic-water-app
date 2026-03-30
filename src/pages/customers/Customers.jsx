@@ -46,15 +46,16 @@ export default function Customers() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
+      console.log('🔄 Loading customers and sales...')
       const [customersData, salesData] = await Promise.all([
         getCustomers(),
         getSales()
       ])
+      console.log('✅ Loaded:', customersData?.length, 'customers,', salesData?.length, 'sales')
       setCustomers(customersData || [])
       setAllSales(salesData || [])
-      console.log('✅ Loaded:', customersData?.length, 'customers,', salesData?.length, 'sales')
     } catch (err) {
-      console.error('Failed to load data:', err)
+      console.error('❌ Failed to load data:', err)
       toast.error('Failed to load customers')
       setCustomers([])
       setAllSales([])
@@ -70,6 +71,11 @@ export default function Customers() {
 
   // Get customer status based on sales
   const getCustomerStatus = useCallback((customer) => {
+    if (!customer || !customer.id) {
+      console.warn('⚠️ Invalid customer object:', customer)
+      return 'new'
+    }
+    
     const customerSales = allSales.filter(s => s.customer_id === customer.id)
     const lastSale = customerSales.length > 0 
       ? new Date(Math.max(...customerSales.map(s => new Date(s.date))))
@@ -90,6 +96,10 @@ export default function Customers() {
 
   // Calculate customer stats
   const getCustomerStats = useCallback((customer) => {
+    if (!customer || !customer.id) {
+      return { totalOrders: 0, totalSpent: 0, lastPurchase: null }
+    }
+    
     const customerSales = allSales.filter(s => s.customer_id === customer.id)
     const totalOrders = customerSales.length
     const totalSpent = customerSales.reduce((sum, s) => sum + (s.total || 0), 0)
@@ -100,35 +110,52 @@ export default function Customers() {
     return { totalOrders, totalSpent, lastPurchase }
   }, [allSales])
 
-  // Handle form submission
+  // ✅ FIXED: Handle form submission with proper ID check
   const handleSubmit = useCallback(async (formData) => {
+    console.log('📋 Customers.jsx handleSubmit called:', formData)
+    console.log('📝 Editing customer:', editingCustomer)
+    
     try {
-      if (editingCustomer) {
+      if (editingCustomer && editingCustomer.id) {
+        // ✅ UPDATE existing customer
+        console.log('📝 Updating customer ID:', editingCustomer.id)
         await updateCustomer(editingCustomer.id, formData)
         setEditingCustomer(null)
         toast.success('Customer updated!')
       } else {
+        // ✅ CREATE new customer
+        console.log('➕ Creating new customer')
         await createCustomer(formData)
         toast.success('Customer added!')
       }
+      
+      console.log('🔄 Reloading customers...')
       await loadData()
+      console.log('✅ Customers reloaded')
       return true
     } catch (err) {
-      console.error('Save customer error:', err)
-      toast.error('Failed to save customer')
+      console.error('❌ Save customer error:', err)
+      toast.error('Failed to save customer: ' + err.message)
       return false
     }
   }, [editingCustomer, createCustomer, updateCustomer, loadData])
 
-  // Handle view customer sales
-  const handleViewCustomer = useCallback((customerId) => {
-    setSelectedCustomerId(customerId)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
-
-  // Handle edit click
+  // ✅ FIXED: Handle edit click with ID validation
   const handleEditClick = useCallback((customer) => {
-    setEditingCustomer(customer)
+    console.log('✏️ Edit clicked for:', customer)
+    
+    if (!customer || !customer.id) {
+      console.error('❌ Invalid customer object for edit:', customer)
+      toast.error('Cannot edit: Invalid customer data')
+      return
+    }
+    
+    setEditingCustomer({
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      location: customer.location || ''
+    })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
@@ -139,9 +166,13 @@ export default function Customers() {
 
   // Confirm delete
   const confirmDelete = useCallback(async () => {
-    if (!customerToDelete) return
+    if (!customerToDelete || !customerToDelete.id) {
+      toast.error('Cannot delete: Invalid customer data')
+      return
+    }
     
     try {
+      console.log('🗑️ Deleting customer:', customerToDelete.id)
       await deleteCustomer(customerToDelete.id)
       if (selectedCustomerId === customerToDelete.id) {
         setSelectedCustomerId(null)
@@ -149,7 +180,7 @@ export default function Customers() {
       await loadData()
       toast.success('Customer deleted')
     } catch (err) {
-      console.error('Delete customer error:', err)
+      console.error('❌ Delete customer error:', err)
       toast.error('Failed to delete customer')
     } finally {
       setCustomerToDelete(null)
@@ -159,6 +190,16 @@ export default function Customers() {
   // Handle cancel edit
   const handleCancelEdit = useCallback(() => {
     setEditingCustomer(null)
+  }, [])
+
+  // Handle view customer sales
+  const handleViewCustomer = useCallback((customerId) => {
+    if (!customerId) {
+      console.error('❌ Invalid customer ID for view:', customerId)
+      return
+    }
+    setSelectedCustomerId(customerId)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
   // Handle sort
@@ -174,6 +215,12 @@ export default function Customers() {
   // Filter and sort customers
   const filteredCustomers = useCallback(() => {
     let filtered = customers.filter(customer => {
+      // Skip invalid customers
+      if (!customer || !customer.id) {
+        console.warn('⚠️ Skipping invalid customer:', customer)
+        return false
+      }
+      
       // Search filter
       const matchesSearch = 
         customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -226,7 +273,7 @@ export default function Customers() {
   }, [customers, searchTerm, statusFilter, sortColumn, sortDirection, getCustomerStatus, getCustomerStats])
 
   // Get selected customer
-  const selectedCustomer = customers?.find?.(c => c.id === selectedCustomerId)
+  const selectedCustomer = customers?.find?.(c => c?.id === selectedCustomerId)
 
   // Get selected customer's sales
   const selectedCustomerSales = allSales.filter(s => s.customer_id === selectedCustomerId)
@@ -263,7 +310,7 @@ export default function Customers() {
       {/* Page Header */}
       <div className="flex items-center justify-between pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary-light/20 flex items-center justify-center shadow-sm">
             <Users className="w-5 h-5 text-primary" />
           </div>
           <div>
@@ -339,7 +386,7 @@ export default function Customers() {
         </div>
       )}
 
-      {/* ✅ Customer Sales Panel - Shows ALL sales for selected customer */}
+      {/* Customer Sales Panel */}
       {selectedCustomerId && selectedCustomer && (
         <div className="card animate-fade-in-up">
           <CustomerSales 
@@ -458,7 +505,7 @@ export default function Customers() {
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary-light/20 flex items-center justify-center">
                             <span className="text-sm font-semibold text-primary">
                               {customer.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                             </span>
