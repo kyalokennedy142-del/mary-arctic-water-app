@@ -25,7 +25,7 @@ const formatKES = (amount) => new Intl.NumberFormat('en-KE', {
 }).format(amount || 0)
 
 // Simple Line Chart Component for Daily Growth
-const DailyGrowthChart = ({ salesData }) => {
+const DailyGrowthChart = ({ salesData, activeCustomers }) => {
   // Get last 7 days of sales
   const getLast7Days = () => {
     const days = []
@@ -39,11 +39,16 @@ const DailyGrowthChart = ({ salesData }) => {
   }
 
   const days = getLast7Days()
+  
+  // ✅ Filter sales to only include active customers
+  const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
+  
   const dailyRevenue = days.map(day => {
     const daySales = salesData.filter(sale => {
       const saleDate = new Date(sale.date)
       saleDate.setHours(0, 0, 0, 0)
-      return saleDate.getTime() === day.getTime()
+      // ✅ Only include sales from active customers
+      return saleDate.getTime() === day.getTime() && activeCustomerIds.has(sale.customer_id)
     })
     return daySales.reduce((sum, s) => sum + (s.total || 0), 0)
   })
@@ -169,9 +174,9 @@ export default function Dashboard() {
     try {
       setLoading(true)
       const [customers, stock, sales] = await Promise.all([
-        getCustomers(),
+        getCustomers(), // ✅ Only returns active customers (is_archived = false)
         getStock(),
-        getSales()
+        getSales() // ✅ Only returns sales from active customers
       ])
       setData({
         customers: customers || [],
@@ -197,14 +202,20 @@ export default function Dashboard() {
     toast.success('Dashboard updated!')
   }
 
+  // ✅ Filter to only active customers (extra safety)
+  const activeCustomers = data.customers.filter(c => !c.is_archived)
+
   // Calculate metrics
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
+  // ✅ Only include sales from active customers
+  const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
+  
   const todaysSales = data.sales.filter(sale => {
     const saleDate = new Date(sale.date)
     saleDate.setHours(0, 0, 0, 0)
-    return saleDate.getTime() === today.getTime()
+    return saleDate.getTime() === today.getTime() && activeCustomerIds.has(sale.customer_id)
   })
 
   const yesterdaysSales = data.sales.filter(sale => {
@@ -212,7 +223,7 @@ export default function Dashboard() {
     yesterday.setDate(yesterday.getDate() - 1)
     const saleDate = new Date(sale.date)
     saleDate.setHours(0, 0, 0, 0)
-    return saleDate.getTime() === yesterday.getTime()
+    return saleDate.getTime() === yesterday.getTime() && activeCustomerIds.has(sale.customer_id)
   })
 
   const todaysRevenue = todaysSales.reduce((sum, s) => sum + (s.total || 0), 0)
@@ -225,9 +236,14 @@ export default function Dashboard() {
   const criticalStock = data.stock.filter(item => item.quantity <= 5)
   const healthyStock = data.stock.filter(item => item.quantity > 10).length
 
-  // Customer segmentation
+  // Customer segmentation - ✅ Only for active customers
   const getCustomerStatus = (customer) => {
-    const customerSales = data.sales.filter(s => s.customer_id === customer.id)
+    // Skip archived customers
+    if (customer.is_archived) return 'archived'
+    
+    const customerSales = data.sales.filter(s => 
+      s.customer_id === customer.id && activeCustomerIds.has(customer.id)
+    )
     const lastSale = customerSales.length > 0 
       ? new Date(Math.max(...customerSales.map(s => new Date(s.date))))
       : null
@@ -246,10 +262,10 @@ export default function Dashboard() {
   }
 
   const customerSegments = {
-    new: data.customers.filter(c => getCustomerStatus(c) === 'new').length,
-    active: data.customers.filter(c => getCustomerStatus(c) === 'active').length,
-    atRisk: data.customers.filter(c => getCustomerStatus(c) === 'at-risk').length,
-    dormant: data.customers.filter(c => getCustomerStatus(c) === 'dormant').length
+    new: activeCustomers.filter(c => getCustomerStatus(c) === 'new').length,
+    active: activeCustomers.filter(c => getCustomerStatus(c) === 'active').length,
+    atRisk: activeCustomers.filter(c => getCustomerStatus(c) === 'at-risk').length,
+    dormant: activeCustomers.filter(c => getCustomerStatus(c) === 'dormant').length
   }
 
   // Stock status counts
@@ -511,7 +527,8 @@ export default function Dashboard() {
           )}
         </div>
         
-        <DailyGrowthChart salesData={data.sales} />
+        {/* ✅ Pass activeCustomers to filter sales in chart */}
+        <DailyGrowthChart salesData={data.sales} activeCustomers={activeCustomers} />
         
         <div className="mt-4 pt-4 border-t border-border/20">
           <div className="flex justify-between text-sm">
@@ -521,7 +538,8 @@ export default function Dashboard() {
                 {formatKES(data.sales.filter(s => {
                   const weekAgo = new Date()
                   weekAgo.setDate(weekAgo.getDate() - 7)
-                  return new Date(s.date) >= weekAgo
+                  // ✅ Only include sales from active customers
+                  return new Date(s.date) >= weekAgo && activeCustomerIds.has(s.customer_id)
                 }).reduce((sum, s) => sum + (s.total || 0), 0))}
               </span>
             </div>
