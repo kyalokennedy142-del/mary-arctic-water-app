@@ -26,7 +26,8 @@ export default function Stock() {
   const [editingItem, setEditingItem] = useState(null)
   const [addingNew, setAddingNew] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
-  const [showOverview, setShowOverview] = useState(false) // ✅ Toggle for Product Overview
+  const [showOverview, setShowOverview] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false) // ✅ Modal state for edit
   
   // Search and filter
   const [searchTerm, setSearchTerm] = useState('')
@@ -76,6 +77,7 @@ export default function Stock() {
       if (editingItem) {
         await updateStock(editingItem.id, formData)
         setEditingItem(null)
+        setShowEditModal(false) // ✅ Close modal after update
         toast.success('Product updated!')
       } else {
         await createStock(formData)
@@ -201,6 +203,19 @@ export default function Stock() {
       : <ChevronDown className="w-4 h-4 text-primary" />
   }
 
+  // ✅ Open edit modal
+  const openEditModal = useCallback((item) => {
+    setEditingItem(item)
+    setAddingNew(false)
+    setShowEditModal(true)
+  }, [])
+
+  // ✅ Close edit modal
+  const closeEditModal = useCallback(() => {
+    setEditingItem(null)
+    setShowEditModal(false)
+  }, [])
+
   return (
     <div className="space-y-6 animate-fade-in">
       
@@ -241,7 +256,7 @@ export default function Stock() {
         </div>
       </div>
 
-      {/* ✅ Product Overview Toggle Button */}
+      {/* Product Overview Toggle Button */}
       <div className="flex justify-center">
         <Button
           variant="outline"
@@ -254,7 +269,7 @@ export default function Stock() {
         </Button>
       </div>
 
-      {/* ✅ Product Overview Grid - Shows/Hide with Toggle */}
+      {/* Product Overview Grid - Shows/Hide with Toggle */}
       {showOverview && (
         <div className="card animate-fade-in">
           <div className="flex items-center justify-between mb-4">
@@ -295,17 +310,13 @@ export default function Stock() {
                     <span className="font-medium">{formatKES(item.quantity * item.selling_price)}</span>
                   </div>
                   
-                  {/* Edit Button - Opens form with product data */}
+                  {/* ✅ Edit Button - Opens Modal (No Scrolling!) */}
                   <div className="flex gap-2 mt-3 pt-2 border-t border-border/20">
                     <Button 
                       size="sm" 
                       variant="outline"
                       className="flex-1 rounded-lg text-xs h-8"
-                      onClick={() => {
-                        setEditingItem(item)
-                        setAddingNew(false)
-                        window.scrollTo({ top: 0, behavior: 'smooth' })
-                      }}
+                      onClick={() => openEditModal(item)}
                     >
                       <Pencil className="w-3 h-3 mr-1" />
                       Edit
@@ -362,6 +373,7 @@ export default function Stock() {
             </SelectContent>
           </Select>
           
+          {/* ✅ Add Product - Still scrolls to form (for new products) */}
           <Button 
             onClick={() => { setAddingNew(true); setEditingItem(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
             className="btn-primary-gradient rounded-xl hover-lift-subtle"
@@ -396,18 +408,18 @@ export default function Stock() {
         </div>
       )}
 
-      {/* Add/Edit Product Form */}
-      {(addingNew || editingItem) && (
+      {/* Add Product Form (Only for NEW products - scrolls to top) */}
+      {addingNew && !editingItem && (
         <div className="card animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
-              {editingItem ? <Pencil className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
-              {editingItem ? 'Edit Product' : 'Add New Product'}
+              <Plus className="w-5 h-5 text-primary" />
+              Add New Product
             </h2>
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => { setAddingNew(false); setEditingItem(null) }}
+              onClick={() => setAddingNew(false)}
               className="hover-lift-subtle"
             >
               <X className="w-4 h-4 mr-2" />
@@ -416,9 +428,39 @@ export default function Stock() {
           </div>
           <StockForm 
             onSubmit={handleSubmit}
-            editingItem={editingItem}
-            onCancel={() => { setAddingNew(false); setEditingItem(null) }}
+            editingItem={null}
+            onCancel={() => setAddingNew(false)}
           />
+        </div>
+      )}
+
+      {/* ✅ EDIT MODAL - Popup for editing (No scrolling!) */}
+      {showEditModal && editingItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="card max-w-2xl w-full shadow-xl relative">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/20">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-primary" />
+                Edit Product
+              </h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={closeEditModal}
+                className="hover-lift-subtle"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {/* Modal Form */}
+            <StockForm 
+              onSubmit={handleSubmit}
+              editingItem={editingItem}
+              onCancel={closeEditModal}
+            />
+          </div>
         </div>
       )}
 
@@ -496,7 +538,8 @@ export default function Stock() {
                     <td className="py-4 px-4 text-center"><StockBadge quantity={item.quantity} /></td>
                     <td className="py-4 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary hover-lift-subtle" onClick={() => { setEditingItem(item); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+                        {/* ✅ Table Edit Button - Opens Modal (No Scrolling!) */}
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary hover-lift-subtle" onClick={() => openEditModal(item)}>
                           <Pencil className="w-4 h-4" />
                         </Button>
                         <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive hover-lift-subtle" onClick={() => setDeleteConfirm(item)}>
@@ -536,7 +579,7 @@ export default function Stock() {
   )
 }
 
-// Stock Form Component
+// Stock Form Component (unchanged)
 function StockForm({ onSubmit, editingItem, onCancel }) {
   const [form, setForm] = useState({
     product_name: editingItem?.product_name || '',
