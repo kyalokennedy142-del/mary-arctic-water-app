@@ -1,7 +1,8 @@
+// src/components/sales/SalesForm.jsx
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { ShoppingCart, AlertCircle, Printer, RotateCcw, CheckCircle2 } from 'lucide-react'
+import { ShoppingCart, AlertCircle, RotateCcw, CheckCircle2, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,20 +21,42 @@ export default function SalesForm({
   customers = [], 
   stock = [], 
   onSubmit,
-  loading = false 
+  loading = false,
+  editingSale = null,  // ✅ ADDED: For edit mode
+  onCancel  // ✅ ADDED: Cancel edit callback
 }) {
   const [form, setForm] = useState({
     customer_id: '',
     category: '',
     product_id: '',
     quantity: '',
-    price: ''
+    price: '',
+    date: new Date().toISOString().split('T')[0],  // ✅ ADDED: Date field
+    notes: ''  // ✅ ADDED: Notes field
   })
   
   const [errors, setErrors] = useState({})
   const [selectedStock, setSelectedStock] = useState(null)
   const [showPriceWarning, setShowPriceWarning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // ✅ ADDED: Populate form when editing
+  useEffect(() => {
+    if (editingSale) {
+      const product = stock.find(s => s.id === editingSale.product_id)
+      setForm({
+        customer_id: editingSale.customer_id || '',
+        category: product?.category || '',
+        product_id: editingSale.product_id || '',
+        quantity: editingSale.quantity_sold?.toString() || '',
+        price: editingSale.price?.toString() || '',
+        date: editingSale.date ? new Date(editingSale.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        notes: editingSale.notes || ''
+      })
+      setSelectedStock(product || null)
+      setShowPriceWarning(false)
+    }
+  }, [editingSale, stock])
 
   // Get unique categories from stock
   const categories = [...new Set(stock.map(item => item.category).filter(Boolean))]
@@ -49,8 +72,8 @@ export default function SalesForm({
       const product = stock.find(s => s.id === form.product_id)
       setSelectedStock(product)
       
-      // Auto-fill price from stock
-      if (product) {
+      // Auto-fill price from stock (only if not editing or price is empty)
+      if (product && (!editingSale || !form.price)) {
         setForm(prev => ({
           ...prev,
           price: product.selling_price.toString()
@@ -60,15 +83,17 @@ export default function SalesForm({
     } else {
       setSelectedStock(null)
     }
-  }, [form.product_id, stock])
+  }, [form.product_id, stock, editingSale, form.price])
 
   // Check if price differs from stock price
   useEffect(() => {
-    if (selectedStock && form.price) {
+    if (selectedStock && form.price && !editingSale) {
       const diff = Math.abs(parseFloat(form.price) - selectedStock.selling_price)
       setShowPriceWarning(diff > 0.01)
+    } else {
+      setShowPriceWarning(false)
     }
-  }, [form.price, selectedStock])
+  }, [form.price, selectedStock, editingSale])
 
   // Validate form
   const validateForm = useCallback(() => {
@@ -92,6 +117,10 @@ export default function SalesForm({
       newErrors.price = 'Price must be greater than 0'
     }
     
+    if (!form.date) {
+      newErrors.date = 'Please select a date'  // ✅ ADDED: Date validation
+    }
+    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }, [form, selectedStock])
@@ -111,26 +140,37 @@ export default function SalesForm({
       const customer = customers.find(c => c.id === form.customer_id)
       const product = stock.find(s => s.id === form.product_id)
       
-      await onSubmit({
+      const saleData = {
         customer_id: form.customer_id,
         customer_name: customer?.name || 'Unknown',
         product_id: form.product_id,
         product_name: product?.product_name || 'Unknown',
         quantity_sold: parseInt(form.quantity),
         price: parseFloat(form.price),
-        total: parseInt(form.quantity) * parseFloat(form.price)
-      })
+        total: parseInt(form.quantity) * parseFloat(form.price),
+        date: new Date(form.date).toISOString(),  // ✅ ADDED: Include date
+        notes: form.notes || null  // ✅ ADDED: Include notes
+      }
       
-      toast.success('Sale recorded successfully!', {
+      // ✅ ADDED: Include ID if editing
+      if (editingSale?.id) {
+        saleData.id = editingSale.id
+      }
+      
+      await onSubmit(saleData)
+      
+      toast.success(editingSale ? 'Sale updated!' : 'Sale recorded!', {
         icon: <CheckCircle2 className="w-5 h-5 text-green-600" />,
         duration: 3000
       })
       
-      // Reset form
-      handleClearForm()
+      // Reset form only if not editing
+      if (!editingSale) {
+        handleClearForm()
+      }
     } catch (error) {
       console.error('Sale error:', error)
-      toast.error('Failed to record sale: ' + (error.message || 'Unknown error'))
+      toast.error('Failed: ' + (error.message || 'Unknown error'))
     } finally {
       setIsSubmitting(false)
     }
@@ -143,11 +183,19 @@ export default function SalesForm({
       category: '',
       product_id: '',
       quantity: '',
-      price: ''
+      price: '',
+      date: new Date().toISOString().split('T')[0],
+      notes: ''
     })
     setErrors({})
     setSelectedStock(null)
     setShowPriceWarning(false)
+  }
+
+  // ✅ ADDED: Cancel edit handler
+  const handleCancel = () => {
+    handleClearForm()
+    onCancel?.()
   }
 
   // Calculate total
@@ -204,7 +252,7 @@ export default function SalesForm({
 
       {/* Form Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Customer Select */}
+        {/* Customer Select - ✅ ADDED WALK-IN OPTION */}
         <div className="space-y-2">
           <Label htmlFor="customer" className="text-sm font-medium">
             Customer <span className="text-destructive">*</span>
@@ -226,6 +274,14 @@ export default function SalesForm({
               <SelectValue placeholder="Select customer" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
+              {/* ✅ ADDED: Walk-in Customer Option */}
+              <SelectItem 
+                value="walkin" 
+                className="hover:bg-primary/5 cursor-pointer border-b border-border/20"
+              >
+                <span className="font-medium text-orange-600">🚶 Walk-in Customer</span>
+              </SelectItem>
+              
               {customers.length === 0 ? (
                 // ✅ FIX: Use non-empty value for disabled placeholder
                 <SelectItem value="placeholder-none" disabled>
@@ -368,6 +424,46 @@ export default function SalesForm({
             </p>
           )}
         </div>
+
+        {/* ✅ ADDED: Date Input */}
+        <div className="space-y-2">
+          <Label htmlFor="date" className="text-sm font-medium">
+            Date <span className="text-destructive">*</span>
+          </Label>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              id="date"
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))}
+              className={`pl-10 rounded-xl transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                errors.date ? 'border-destructive' : 'border-border'
+              }`}
+            />
+          </div>
+          {errors.date && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {errors.date}
+            </p>
+          )}
+        </div>
+
+        {/* ✅ ADDED: Notes Input */}
+        <div className="space-y-2 md:col-span-2 lg:col-span-1">
+          <Label htmlFor="notes" className="text-sm font-medium">
+            Notes <span className="text-muted-foreground font-normal">(optional)</span>
+          </Label>
+          <Input
+            id="notes"
+            type="text"
+            placeholder="Additional notes..."
+            value={form.notes}
+            onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
+            className="rounded-xl transition-all duration-200 focus:ring-2 focus:ring-primary/20 border-border"
+          />
+        </div>
       </div>
 
       {/* Total & Actions */}
@@ -383,12 +479,12 @@ export default function SalesForm({
           <Button
             type="button"
             variant="outline"
-            onClick={handleClearForm}
+            onClick={editingSale ? handleCancel : handleClearForm}  // ✅ ADDED: Cancel for edit mode
             disabled={isSubmitting || loading}
             className="rounded-xl px-6"
           >
             <RotateCcw className="w-4 h-4 mr-2" />
-            Clear
+            {editingSale ? 'Cancel' : 'Clear'}  // ✅ ADDED: Dynamic button text
           </Button>
           
           <Button
@@ -399,12 +495,12 @@ export default function SalesForm({
             {isSubmitting ? (
               <>
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                Recording...
+                {editingSale ? 'Updating...' : 'Recording...'}  // ✅ ADDED: Dynamic loading text
               </>
             ) : (
               <>
                 <ShoppingCart className="w-4 h-4 mr-2" />
-                Record Sale
+                {editingSale ? 'Update Sale' : 'Record Sale'}  // ✅ ADDED: Dynamic button text
               </>
             )}
           </Button>

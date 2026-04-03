@@ -628,3 +628,212 @@ input[type="number"][name="quantity"] {
   @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
 }
 
+/* ============================================
+   💧 AQUABIZ SMART TYPOGRAPHY SYSTEM
+   ============================================ */
+
+/* Modern font stack - looks great on all devices */
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 
+               "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Base body - smooth, readable, professional */
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* All headings - bold, clear hierarchy */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--color-foreground);
+}
+
+h1 { font-size: 2rem; }    /* 32px */
+h2 { font-size: 1.5rem; }  /* 24px */
+h3 { font-size: 1.25rem; } /* 20px */
+h4 { font-size: 1.125rem; }/* 18px */
+
+/* Responsive: Mobile adjustments */
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.375rem; }
+  h3 { font-size: 1.125rem; }
+}
+
+/* All paragraph text - clean, readable */
+p {
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+
+/* All buttons - professional, clear */
+button, .btn {
+  font-weight: 500;
+  font-size: 0.9375rem; /* 15px */
+  letter-spacing: 0.01em;
+}
+
+/* All table text - clean, aligned */
+table {
+  font-size: 0.875rem; /* 14px */
+  font-weight: 400;
+}
+
+th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem; /* 12px */
+  letter-spacing: 0.05em;
+}
+
+/* All numbers/prices - monospace, aligned */
+.mono, code, kbd, samp {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* All links - smooth, professional */
+a {
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* All labels - clear, readable */
+label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+}
+
+/* All inputs - clean, modern */
+input, select, textarea {
+  font-size: 1rem;
+  font-weight: 400;
+  font-family: var(--font-sans);
+}
+
+/* All badges/pills - crisp */
+.badge, .pill, [class*="badge"], [class*="pill"] {
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+/* All cards - consistent text */
+.card, [class*="card"] {
+  font-size: 0.9375rem;
+}
+
+/* Gradient text (water theme) - automatic */
+.text-gradient, [class*="gradient"] {
+  background: linear-gradient(135deg, #00a8ff, #33b9ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 600;
+}
+
+/* Muted text - softer, readable */
+.muted, .text-muted, [class*="muted"] {
+  color: var(--color-muted-foreground);
+  font-weight: 400;
+}
+
+/* Bold text - stronger emphasis */
+.bold, .font-bold, [class*="bold"] {
+  font-weight: 700;
+}
+
+/* Small text - captions, hints */
+.small, .text-sm, [class*="text-sm"] {
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.5;
+}
+
+/* Large text - emphasis */
+.large, .text-lg, [class*="text-lg"] {
+  font-size: 1.125rem; /* 18px */
+  line-height: 1.5;
+}
+
+/* ============================================
+   📱 RESPONSIVE: Auto-scales on all devices
+   ============================================ */
+
+/* Mobile: Slightly smaller, easier to read */
+@media (max-width: 639px) {
+  body {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.125rem; }
+}
+
+/* Tablet: Balanced size */
+@media (min-width: 640px) and (max-width: 1023px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+/* Desktop: Full size, more spacing */
+@media (min-width: 1024px) {
+  body {
+    font-size: 16px;
+    line-height: 1.7;
+  }
+  h1 { font-size: 2.25rem; }
+  h2 { font-size: 1.75rem; }
+  h3 { font-size: 1.375rem; }
+}
+
+/* ============================================
+   ♿ ACCESSIBILITY: Better for everyone
+   ============================================ */
+
+/* Focus visible - keyboard users */
+:focus-visible {
+  outline: 2px solid #00a8ff;
+  outline-offset: 2px;
+}
+
+/* Selection color - water theme */
+::selection {
+  background: #00a8ff;
+  color: white;
+}
+
+/* Print - readable on paper */
+@media print {
+  body {
+    font-size: 12pt;
+    color: #000;
+  }
+  .text-gradient {
+    -webkit-text-fill-color: #00a8ff;
+    background: none;
+  }
+}
+

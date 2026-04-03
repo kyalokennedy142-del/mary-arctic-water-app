@@ -10,7 +10,8 @@ import {
   RefreshCw,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useData } from '@/context/DataContext'
@@ -26,7 +27,6 @@ const formatKES = (amount) => new Intl.NumberFormat('en-KE', {
 
 // Simple Line Chart Component for Daily Growth
 const DailyGrowthChart = ({ salesData, activeCustomers }) => {
-  // Get last 7 days of sales
   const getLast7Days = () => {
     const days = []
     for (let i = 6; i >= 0; i--) {
@@ -39,15 +39,12 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
   }
 
   const days = getLast7Days()
-  
-  // ✅ Filter sales to only include active customers
   const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
   
   const dailyRevenue = days.map(day => {
     const daySales = salesData.filter(sale => {
       const saleDate = new Date(sale.date)
       saleDate.setHours(0, 0, 0, 0)
-      // ✅ Only include sales from active customers
       return saleDate.getTime() === day.getTime() && activeCustomerIds.has(sale.customer_id)
     })
     return daySales.reduce((sum, s) => sum + (s.total || 0), 0)
@@ -58,14 +55,12 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
   const chartWidth = 280
   const padding = 30
 
-  // Generate path points for line chart
   const points = dailyRevenue.map((value, index) => {
     const x = padding + (index * (chartWidth - padding * 2) / (dailyRevenue.length - 1))
     const y = chartHeight - padding - (value / maxValue) * (chartHeight - padding * 2)
     return `${x},${y}`
   }).join(' ')
 
-  // Generate area fill points
   const areaPoints = `
     ${padding},${chartHeight - padding} 
     ${points} 
@@ -75,7 +70,6 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
   return (
     <div className="space-y-4">
       <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-32">
-        {/* Grid lines */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
           <line
             key={i}
@@ -89,14 +83,8 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
           />
         ))}
         
-        {/* Area fill under line */}
-        <polygon
-          points={areaPoints}
-          fill="url(#gradient)"
-          opacity="0.2"
-        />
+        <polygon points={areaPoints} fill="url(#gradient)" opacity="0.2" />
         
-        {/* Gradient definition */}
         <defs>
           <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#00a8ff" />
@@ -104,7 +92,6 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
           </linearGradient>
         </defs>
         
-        {/* Line */}
         <polyline
           points={points}
           fill="none"
@@ -114,7 +101,6 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
           strokeLinejoin="round"
         />
         
-        {/* Data points */}
         {dailyRevenue.map((value, index) => {
           const x = padding + (index * (chartWidth - padding * 2) / (dailyRevenue.length - 1))
           const y = chartHeight - padding - (value / maxValue) * (chartHeight - padding * 2)
@@ -132,7 +118,6 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
           )
         })}
         
-        {/* X-axis labels */}
         {days.map((day, index) => {
           const x = padding + (index * (chartWidth - padding * 2) / (days.length - 1))
           return (
@@ -149,7 +134,6 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
         })}
       </svg>
       
-      {/* Legend */}
       <div className="flex justify-between text-xs text-muted-foreground px-2">
         <span>7 days ago</span>
         <span>Today</span>
@@ -174,9 +158,9 @@ export default function Dashboard() {
     try {
       setLoading(true)
       const [customers, stock, sales] = await Promise.all([
-        getCustomers(), // ✅ Only returns active customers (is_archived = false)
+        getCustomers(),
         getStock(),
-        getSales() // ✅ Only returns sales from active customers
+        getSales()
       ])
       setData({
         customers: customers || [],
@@ -202,31 +186,72 @@ export default function Dashboard() {
     toast.success('Dashboard updated!')
   }
 
-  // ✅ Filter to only active customers (extra safety)
+  // ✅ Filter to only active customers
   const activeCustomers = data.customers.filter(c => !c.is_archived)
+  const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
 
-  // Calculate metrics
+  // Calculate metrics for different time periods
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // ✅ Only include sales from active customers
-  const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
-  
+  // Start of week (Sunday)
+  const startOfWeek = new Date(today)
+  startOfWeek.setDate(today.getDate() - today.getDay())
+  startOfWeek.setHours(0, 0, 0, 0)
+
+  // Start of month
+  const startOfMonth = new Date(today)
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
+
+  // Today's sales
   const todaysSales = data.sales.filter(sale => {
     const saleDate = new Date(sale.date)
     saleDate.setHours(0, 0, 0, 0)
     return saleDate.getTime() === today.getTime() && activeCustomerIds.has(sale.customer_id)
   })
+  const todaysRevenue = todaysSales.reduce((sum, s) => sum + (s.total || 0), 0)
 
+  // This week's sales
+  const weeklySales = data.sales.filter(sale => {
+    const saleDate = new Date(sale.date)
+    return saleDate >= startOfWeek && saleDate <= today && activeCustomerIds.has(sale.customer_id)
+  })
+  const weeklyRevenue = weeklySales.reduce((sum, s) => sum + (s.total || 0), 0)
+
+  // This month's sales
+  const monthlySales = data.sales.filter(sale => {
+    const saleDate = new Date(sale.date)
+    return saleDate >= startOfMonth && saleDate <= today && activeCustomerIds.has(sale.customer_id)
+  })
+  const monthlyRevenue = monthlySales.reduce((sum, s) => sum + (s.total || 0), 0)
+
+  // Calculate growth percentages
+  const lastWeekStart = new Date(startOfWeek)
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7)
+  const lastWeekRevenue = data.sales.filter(sale => {
+    const saleDate = new Date(sale.date)
+    return saleDate >= lastWeekStart && saleDate < startOfWeek && activeCustomerIds.has(sale.customer_id)
+  }).reduce((sum, s) => sum + (s.total || 0), 0)
+
+  const lastMonthStart = new Date(startOfMonth)
+  lastMonthStart.setMonth(lastMonthStart.getMonth() - 1)
+  const lastMonthRevenue = data.sales.filter(sale => {
+    const saleDate = new Date(sale.date)
+    return saleDate >= lastMonthStart && saleDate < startOfMonth && activeCustomerIds.has(sale.customer_id)
+  }).reduce((sum, s) => sum + (s.total || 0), 0)
+
+  const weeklyGrowth = lastWeekRevenue > 0 ? ((weeklyRevenue - lastWeekRevenue) / lastWeekRevenue) * 100 : 0
+  const monthlyGrowth = lastMonthRevenue > 0 ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0
+
+  // Yesterday's sales (for daily comparison)
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
   const yesterdaysSales = data.sales.filter(sale => {
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
     const saleDate = new Date(sale.date)
     saleDate.setHours(0, 0, 0, 0)
     return saleDate.getTime() === yesterday.getTime() && activeCustomerIds.has(sale.customer_id)
   })
-
-  const todaysRevenue = todaysSales.reduce((sum, s) => sum + (s.total || 0), 0)
   const yesterdaysRevenue = yesterdaysSales.reduce((sum, s) => sum + (s.total || 0), 0)
   const revenueChange = yesterdaysRevenue > 0 
     ? ((todaysRevenue - yesterdaysRevenue) / yesterdaysRevenue) * 100 
@@ -238,7 +263,6 @@ export default function Dashboard() {
 
   // Customer segmentation - ✅ Only for active customers
   const getCustomerStatus = (customer) => {
-    // Skip archived customers
     if (customer.is_archived) return 'archived'
     
     const customerSales = data.sales.filter(s => 
@@ -290,8 +314,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {[...Array(3)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+          {[...Array(4)].map((_, i) => (
             <div key={i} className="rounded-2xl bg-card p-6 shadow-soft animate-pulse">
               <div className="h-4 bg-muted rounded w-1/2 mb-4" />
               <div className="h-8 bg-muted rounded w-3/4 mb-2" />
@@ -319,31 +343,68 @@ export default function Dashboard() {
         </div>
         
         <Button onClick={handleRefresh} variant="outline" className="rounded-xl hover-lift-subtle">
-          <RefreshCw className="w-4 h-4 mr-2" />
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
-      {/* SECTION 1: Key Metrics (3 Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* ✅ SECTION 1: Key Metrics - Daily/Weekly/Monthly (4 Cards) */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         {/* Today's Sales */}
         <div className="card hover-lift">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-muted-foreground">Today's Sales</span>
-            <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <span className="text-sm font-medium text-muted-foreground">Today</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-bold text-gradient">{formatKES(todaysRevenue)}</div>
-          <div className="text-sm text-muted-foreground mt-1">{todaysSales.length} transactions</div>
-          {revenueChange !== 0 && (
-            <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${
-              revenueChange >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {revenueChange >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-              {Math.abs(revenueChange).toFixed(1)}% vs yesterday
+          <div className="text-xs text-muted-foreground mt-1">
+            {todaysSales.length} transactions
+            {revenueChange !== 0 && (
+              <span className={`ml-2 ${revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {revenueChange >= 0 ? '↑' : '↓'} {Math.abs(revenueChange).toFixed(1)}%
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* This Week's Sales */}
+        <div className="card hover-lift">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">This Week</span>
+            <div className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4" />
             </div>
-          )}
+          </div>
+          <div className="text-2xl font-bold text-green-600">{formatKES(weeklyRevenue)}</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {weeklySales.length} transactions
+            {weeklyGrowth !== 0 && (
+              <span className={`ml-2 ${weeklyGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {weeklyGrowth >= 0 ? '↑' : '↓'} {Math.abs(weeklyGrowth).toFixed(1)}%
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* This Month's Sales */}
+        <div className="card hover-lift">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">This Month</span>
+            <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+              <Calendar className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-purple-600">{formatKES(monthlyRevenue)}</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {monthlySales.length} transactions
+            {monthlyGrowth !== 0 && (
+              <span className={`ml-2 ${monthlyGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {monthlyGrowth >= 0 ? '↑' : '↓'} {Math.abs(monthlyGrowth).toFixed(1)}%
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Low Stock */}
@@ -355,21 +416,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="text-2xl font-bold text-warning">{criticalStock.length}</div>
-          <div className="text-sm text-muted-foreground mt-1">items need restock</div>
           <div className="text-xs text-muted-foreground mt-1">{lowStockItems.length} total low items</div>
-        </div>
-
-        {/* Active Customers */}
-        <div className="card hover-lift cursor-pointer" onClick={() => navigate('/customers')}>
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-muted-foreground">Active Customers</span>
-            <div className="w-8 h-8 rounded-lg bg-success/10 text-success flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold text-success">{customerSegments.active}</div>
-          <div className="text-sm text-muted-foreground mt-1">purchased in 30 days</div>
-          <div className="text-xs text-muted-foreground mt-1">{customerSegments.new} new this week</div>
         </div>
       </div>
 
@@ -391,7 +438,6 @@ export default function Dashboard() {
             </Button>
           </div>
           
-          {/* Group low stock items by category */}
           {(() => {
             const groupedByCategory = criticalStock.reduce((acc, item) => {
               const category = item.category || 'Uncategorized'
@@ -402,7 +448,6 @@ export default function Dashboard() {
 
             return Object.entries(groupedByCategory).map(([category, items]) => (
               <div key={category} className="mb-6 last:mb-0">
-                {/* Category Header */}
                 <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                   <Package className="w-4 h-4" />
                   {category.replace(/-/g, ' ').toUpperCase()}
@@ -411,7 +456,6 @@ export default function Dashboard() {
                   </span>
                 </h3>
                 
-                {/* Items Grid for this Category */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   {items.map(item => (
                     <div 
@@ -442,7 +486,6 @@ export default function Dashboard() {
             ))
           })()}
           
-          {/* Summary Footer */}
           <div className="pt-4 border-t border-border/20">
             <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
               <span className="flex items-center gap-2">
@@ -527,7 +570,6 @@ export default function Dashboard() {
           )}
         </div>
         
-        {/* ✅ Pass activeCustomers to filter sales in chart */}
         <DailyGrowthChart salesData={data.sales} activeCustomers={activeCustomers} />
         
         <div className="mt-4 pt-4 border-t border-border/20">
@@ -535,12 +577,7 @@ export default function Dashboard() {
             <div>
               <span className="text-muted-foreground">This Week:</span>
               <span className="font-semibold text-foreground ml-2">
-                {formatKES(data.sales.filter(s => {
-                  const weekAgo = new Date()
-                  weekAgo.setDate(weekAgo.getDate() - 7)
-                  // ✅ Only include sales from active customers
-                  return new Date(s.date) >= weekAgo && activeCustomerIds.has(s.customer_id)
-                }).reduce((sum, s) => sum + (s.total || 0), 0))}
+                {formatKES(weeklyRevenue)}
               </span>
             </div>
             <div>

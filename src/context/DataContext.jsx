@@ -25,7 +25,6 @@ export function DataProvider({ children }) {
   // CUSTOMERS - With Archive Support
   // ============================================
 
-  // ✅ Get ONLY active (non-archived) customers by default
   const getCustomers = async (includeArchived = false) => {
     try {
       let query = supabase
@@ -33,7 +32,6 @@ export function DataProvider({ children }) {
         .select('*')
         .order('created_at', { ascending: false })
       
-      // ✅ Exclude archived unless explicitly requested
       if (!includeArchived) {
         query = query.eq('is_archived', false)
       }
@@ -49,7 +47,6 @@ export function DataProvider({ children }) {
     }
   }
 
-  // ✅ Get ONLY archived customers (for admin views)
   const getArchivedCustomers = async () => {
     try {
       const { data, error } = await supabase
@@ -73,7 +70,7 @@ export function DataProvider({ children }) {
         .from('customers')
         .insert([{ 
           ...customerData,
-          is_archived: false // ✅ Explicitly set as active
+          is_archived: false
         }])
         .select()
         .single()
@@ -92,11 +89,9 @@ export function DataProvider({ children }) {
     }
   }
 
-  // ✅ Update customer with ID validation
   const updateCustomer = async (id, customerData) => {
     console.log('📦 DataContext updateCustomer called:', { id, customerData })
     
-    // ✅ Validate ID before proceeding
     if (!id || id === 'undefined' || id === 'null' || id === null) {
       console.error('❌ Invalid customer ID:', id)
       throw new Error('Invalid customer ID: ' + id)
@@ -130,7 +125,6 @@ export function DataProvider({ children }) {
     }
   }
 
-  // ✅ ARCHIVE customer (soft delete) - excludes from ALL calculations
   const archiveCustomer = async (id, reason = 'User requested') => {
     try {
       console.log('🗃️ Archiving customer:', id, reason)
@@ -162,7 +156,6 @@ export function DataProvider({ children }) {
     }
   }
 
-  // ✅ Un-archive customer (restore to active)
   const restoreCustomer = async (id) => {
     try {
       console.log('🔄 Restoring customer:', id)
@@ -190,8 +183,6 @@ export function DataProvider({ children }) {
     }
   }
 
-  // ⚠️ Hard delete (use with caution - only for test data)
-  // Deletes customer AND related sales to satisfy foreign key
   const deleteCustomer = async (id) => {
     try {
       console.log('🗑️ HARD DELETE customer:', id, '- USE WITH CAUTION')
@@ -200,7 +191,7 @@ export function DataProvider({ children }) {
         throw new Error('Invalid customer ID: ' + id)
       }
       
-      // ⚠️ First delete related sales to satisfy foreign key constraint
+      // First delete related sales to satisfy foreign key
       await supabase.from('sales').delete().eq('customer_id', id)
       
       const { error } = await supabase
@@ -220,29 +211,172 @@ export function DataProvider({ children }) {
   }
 
   // ============================================
-  // SALES - Exclude archived customers from queries
+  // PRODUCTS
   // ============================================
 
-  const getSales = async (includeArchivedCustomers = false) => {
+  const getProducts = async (category = null) => {
+    try {
+      let query = supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+      
+      if (category) {
+        query = query.eq('category', category)
+      }
+      
+      const { data, error } = await query.order('name')
+      if (error) throw error
+      return data || []
+    } catch (err) {
+      console.error('Error fetching products:', err)
+      return []
+    }
+  }
+
+  // ============================================
+  // STOCK - With cost_price fix
+  // ============================================
+
+  const getStock = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stock')
+        .select('*')
+        .order('product_name')
+      
+      if (error) throw error
+      return data || []
+    } catch (err) {
+      console.error('Error fetching stock:', err)
+      return []
+    }
+  }
+
+  const createStock = async (stockData) => {
+    try {
+      // ✅ Ensure numeric fields are properly typed
+      const stockToInsert = {
+        ...stockData,
+        quantity: parseInt(stockData.quantity) || 0,
+        selling_price: parseFloat(stockData.selling_price) || 0,
+        cost_price: parseFloat(stockData.cost_price) || 0,
+        reorder_level: parseInt(stockData.reorder_level) || 10,
+        is_active: stockData.is_active !== false
+      }
+      
+      const { data, error } = await supabase
+        .from('stock')
+        .insert([stockToInsert])
+        .select()
+        .single()
+      
+      if (error) throw error
+      toast.success('Stock item added successfully!')
+      return data
+    } catch (err) {
+      console.error('Error creating stock:', err)
+      toast.error('Failed to add stock: ' + err.message)
+      throw err
+    }
+  }
+
+  // ✅ FIXED: updateStock with cost_price handling
+  const updateStock = async (id, stockData) => {
+    console.log('📦 DataContext updateStock called:', { id, stockData })
+    
+    if (!id || id === 'undefined' || id === 'null' || id === null) {
+      throw new Error('Invalid stock ID: ' + id)
+    }
+    
+    try {
+      // ✅ Ensure all numeric fields are properly typed for Supabase
+      const stockToUpdate = {
+        ...stockData,
+        // Ensure numeric fields are numbers, not strings
+        quantity: stockData.quantity !== undefined ? parseInt(stockData.quantity) : undefined,
+        selling_price: stockData.selling_price !== undefined ? parseFloat(stockData.selling_price) : undefined,
+        cost_price: stockData.cost_price !== undefined ? parseFloat(stockData.cost_price) : 0, // ✅ Default to 0 if missing
+        reorder_level: stockData.reorder_level !== undefined ? parseInt(stockData.reorder_level) : undefined,
+        is_active: stockData.is_active !== undefined ? stockData.is_active : undefined,
+        // Always update timestamp
+        updated_at: new Date().toISOString()
+      }
+      
+      // Remove undefined values to avoid Supabase errors
+      Object.keys(stockToUpdate).forEach(key => {
+        if (stockToUpdate[key] === undefined) {
+          delete stockToUpdate[key]
+        }
+      })
+      
+      const { data, error } = await supabase
+        .from('stock')
+        .update(stockToUpdate)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('❌ Supabase update error:', error)
+        throw new Error(error.message)
+      }
+      
+      console.log('✅ Stock updated:', data)
+      toast.success('Stock updated successfully!')
+      return data
+    } catch (err) {
+      console.error('❌ updateStock error:', err)
+      toast.error('Failed to update stock: ' + err.message)
+      throw err
+    }
+  }
+
+  const reduceStock = async (id, quantitySold) => {
+    try {
+      const { data: current, error: fetchError } = await supabase
+        .from('stock')
+        .select('quantity')
+        .eq('id', id)
+        .single()
+      
+      if (fetchError) throw fetchError
+      if (current.quantity < quantitySold) {
+        throw new Error(`Only ${current.quantity} units available`)
+      }
+
+      const { data: updated, error: updateError } = await supabase
+        .from('stock')
+        .update({ 
+          quantity: current.quantity - quantitySold,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (updateError) throw updateError
+      return updated
+    } catch (err) {
+      console.error('Error reducing stock:', err)
+      toast.error('Failed to update stock: ' + err.message)
+      throw err
+    }
+  }
+
+  // ============================================
+  // SALES - Full Management
+  // ============================================
+
+  const getSales = async (includeArchived = false) => {
     try {
       let query = supabase
         .from('sales')
         .select('*')
         .order('date', { ascending: false })
       
-      // ✅ Exclude sales from archived customers unless requested
-      if (!includeArchivedCustomers) {
-        // Join with customers table and filter
-        query = query
-          .select(`
-            *,
-            customer:customers (
-              id,
-              name,
-              is_archived
-            )
-          `)
-          .filter('customer.is_archived', 'eq', false)
+      if (!includeArchived) {
+        query = query.eq('is_archived', false)
       }
       
       const { data, error } = await query
@@ -257,7 +391,6 @@ export function DataProvider({ children }) {
 
   const getSalesByCustomer = async (customerId, includeArchived = false) => {
     try {
-      // ✅ Check if customer is archived (unless explicitly including archived)
       if (!includeArchived) {
         const { data: customer } = await supabase
           .from('customers')
@@ -289,7 +422,6 @@ export function DataProvider({ children }) {
     try {
       console.log('🛒 Creating sale:', saleData)
       
-      // ✅ Check if customer is archived before allowing sale
       const { data: customer } = await supabase
         .from('customers')
         .select('is_archived')
@@ -302,13 +434,17 @@ export function DataProvider({ children }) {
       
       const { data: sale, error: saleError } = await supabase
         .from('sales')
-        .insert([{ ...saleData }])
+        .insert([{ 
+          ...saleData,
+          quantity_sold: parseInt(saleData.quantity_sold),
+          price: parseFloat(saleData.price),
+          total: parseFloat(saleData.total)
+        }])
         .select()
         .single()
       
       if (saleError) throw saleError
 
-      // Reduce stock after successful sale
       await reduceStock(saleData.product_id, saleData.quantity_sold)
 
       console.log('✅ Sale recorded:', sale)
@@ -321,105 +457,134 @@ export function DataProvider({ children }) {
     }
   }
 
-  // ============================================
-  // STOCK (unchanged)
-  // ============================================
-
-  const getStock = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('stock')
-        .select('*')
-        .order('product_name')
-      
-      if (error) throw error
-      return data || []
-    } catch (err) {
-      console.error('Error fetching stock:', err)
-      return []
+  const updateSale = async (id, saleData) => {
+    console.log('📦 DataContext updateSale called:', { id, saleData })
+    
+    if (!id || id === 'undefined' || id === 'null' || id === null) {
+      throw new Error('Invalid sale ID: ' + id)
     }
-  }
-
-  const createStock = async (stockData) => {
+    
     try {
       const { data, error } = await supabase
-        .from('stock')
-        .insert([{ ...stockData }])
+        .from('sales')
+        .update({
+          ...saleData,
+          quantity_sold: saleData.quantity_sold !== undefined ? parseInt(saleData.quantity_sold) : undefined,
+          price: saleData.price !== undefined ? parseFloat(saleData.price) : undefined,
+          total: saleData.total !== undefined ? parseFloat(saleData.total) : undefined,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
         .select()
         .single()
       
       if (error) throw error
-      toast.success('Stock item added successfully!')
+      
+      console.log('✅ Sale updated:', data)
+      toast.success('Sale updated successfully!')
       return data
     } catch (err) {
-      console.error('Error creating stock:', err)
-      toast.error('Failed to add stock: ' + err.message)
+      console.error('❌ updateSale error:', err)
+      toast.error('Failed to update sale: ' + err.message)
       throw err
     }
   }
 
-  const reduceStock = async (id, quantitySold) => {
+  const archiveSale = async (id, reason = 'User requested') => {
+    console.log('🗃️ DataContext archiveSale called:', { id, reason })
+    
+    if (!id || id === 'undefined' || id === 'null' || id === null) {
+      throw new Error('Invalid sale ID: ' + id)
+    }
+    
     try {
-      // Get current quantity
-      const { data: current, error: fetchError } = await supabase
-        .from('stock')
-        .select('quantity')
-        .eq('id', id)
-        .single()
-      
-      if (fetchError) throw fetchError
-      if (current.quantity < quantitySold) {
-        throw new Error(`Only ${current.quantity} units available`)
-      }
-
-      // Update quantity
-      const { data: updated, error: updateError } = await supabase
-        .from('stock')
-        .update({ quantity: current.quantity - quantitySold })
+      const { data, error } = await supabase
+        .from('sales')
+        .update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+          archived_reason: reason,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id)
         .select()
         .single()
       
-      if (updateError) throw updateError
-      return updated
+      if (error) throw error
+      
+      console.log('✅ Sale archived:', data)
+      toast.success('Sale archived! Record preserved but excluded from reports.')
+      return true
     } catch (err) {
-      console.error('Error reducing stock:', err)
-      toast.error('Failed to update stock: ' + err.message)
+      console.error('❌ archiveSale error:', err)
+      toast.error('Failed to archive sale: ' + err.message)
+      throw err
+    }
+  }
+
+  const restoreSale = async (id) => {
+    console.log('🔄 DataContext restoreSale called:', id)
+    
+    if (!id || id === 'undefined' || id === 'null' || id === null) {
+      throw new Error('Invalid sale ID: ' + id)
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .update({
+          is_archived: false,
+          archived_at: null,
+          archived_reason: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      console.log('✅ Sale restored:', data)
+      toast.success('Sale restored! Now included in reports.')
+      return true
+    } catch (err) {
+      console.error('❌ restoreSale error:', err)
+      toast.error('Failed to restore sale: ' + err.message)
+      throw err
+    }
+  }
+
+  const deleteSale = async (id) => {
+    console.log('🗑️ DataContext deleteSale called:', id)
+    
+    if (!id || id === 'undefined' || id === 'null' || id === null) {
+      throw new Error('Invalid sale ID: ' + id)
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('sales')
+        .delete()
+        .eq('id', id)
+      
+      if (error) throw error
+      
+      console.log('✅ Sale permanently deleted:', id)
+      toast.success('Sale permanently deleted!')
+      return true
+    } catch (err) {
+      console.error('❌ deleteSale error:', err)
+      toast.error('Failed to delete sale: ' + err.message)
       throw err
     }
   }
 
   // ============================================
-  // PRODUCTS (unchanged)
-  // ============================================
-
-  const getProducts = async (category = null) => {
-    try {
-      let query = supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-      
-      if (category) {
-        query = query.eq('category', category)
-      }
-      
-      const { data, error } = await query.order('name')
-      if (error) throw error
-      return data || []
-    } catch (err) {
-      console.error('Error fetching products:', err)
-      return []
-    }
-  }
-
-  // ============================================
-  // SEED INITIAL DATA (unchanged)
+  // SEED INITIAL DATA
   // ============================================
 
   const seedInitialData = async () => {
     try {
-      // Check if customers already exist
       const { count } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
@@ -430,7 +595,6 @@ export function DataProvider({ children }) {
         return
       }
 
-      // Seed sample customers
       await supabase.from('customers').insert([
         { name: 'John Mwangi', phone: '+254712345678', location: 'Nairobi CBD' },
         { name: 'Sarah Ochieng', phone: '+254798765432', location: 'Westlands' },
@@ -447,7 +611,7 @@ export function DataProvider({ children }) {
   }
 
   // ============================================
-  // CONTEXT VALUE - Export all functions
+  // CONTEXT VALUE
   // ============================================
 
   const value = {
@@ -458,19 +622,24 @@ export function DataProvider({ children }) {
     getArchivedCustomers,
     createCustomer,
     updateCustomer,
-    archiveCustomer,    // ✅ NEW: Soft delete (archive)
-    restoreCustomer,    // ✅ NEW: Undo archive
-    deleteCustomer,     // ⚠️ Hard delete (use with caution)
+    archiveCustomer,
+    restoreCustomer,
+    deleteCustomer,
     // Products
     getProducts,
     // Stock
     getStock,
     createStock,
+    updateStock,  // ✅ Now includes cost_price fix
     reduceStock,
     // Sales
     getSales,
     getSalesByCustomer,
     createSale,
+    updateSale,
+    archiveSale,
+    restoreSale,
+    deleteSale,
     // Seed
     seedInitialData
   }

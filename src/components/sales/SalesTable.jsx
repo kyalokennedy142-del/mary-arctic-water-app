@@ -1,162 +1,183 @@
+// src/components/sales/SalesTable.jsx
 "use client"
 
-import { useState } from 'react'
 import { format } from 'date-fns'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Pencil, Archive, RotateCcw, Trash2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Printer, Download } from 'lucide-react'
-import { formatKES } from '@/lib/utils'
 
-export default function SalesTable({ sales = [], loading = false }) {
-  const [sortBy, setSortBy] = useState('date')
-  const [sortOrder, setSortOrder] = useState('desc')
+// Format KES currency
+const formatKES = (amount) => new Intl.NumberFormat('en-KE', {
+  style: 'currency',
+  currency: 'KES',
+  minimumFractionDigits: 0
+}).format(amount || 0)
 
-  const handleSort = (column) => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortBy(column)
-      setSortOrder('desc')
-    }
-  }
-
-  const sortedSales = [...sales].sort((a, b) => {
-    if (sortBy === 'date') {
-      return sortOrder === 'asc' 
-        ? new Date(a.date) - new Date(b.date)
-        : new Date(b.date) - new Date(a.date)
-    } else if (sortBy === 'total') {
-      return sortOrder === 'asc' ? a.total - b.total : b.total - a.total
-    }
-    return 0
-  })
-
-  const handlePrint = () => {
-    window.print()
-  }
-
-  const handleExport = () => {
-    // Export to CSV
-    const headers = ['Date', 'Customer', 'Product', 'Quantity', 'Price', 'Total']
-    const rows = sales.map(sale => [
-      format(new Date(sale.date), 'yyyy-MM-dd HH:mm'),
-      sale.customer_name,
-      sale.product_name,
-      sale.quantity_sold,
-      sale.price,
-      sale.total
-    ])
-    
-    const csv = [headers, ...rows]
-      .map(row => row.join(','))
-      .join('\n')
-    
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `sales-${format(new Date(), 'yyyy-MM-dd')}.csv`
-    a.click()
-  }
-
+export default function SalesTable({ 
+  sales = [], 
+  loading = false,
+  onEdit,
+  onArchive,
+  onRestore,
+  onDelete,
+  onView
+}) {
+  // Loading state
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+      <div className="space-y-3">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />
+        ))}
       </div>
     )
   }
 
+  // Empty state
   if (sales.length === 0) {
     return (
-      <div className="text-center text-muted-foreground py-12">
-        <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-3 flex items-center justify-center">
-          <Printer className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <p className="text-lg font-medium">No sales recorded yet</p>
-        <p className="text-sm">Sales will appear here once recorded</p>
+      <div className="text-center text-muted-foreground py-8">
+        <p className="text-sm">No sales to display</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      {/* Table Actions */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Recent Sales ({sales.length})</h3>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            className="rounded-xl"
-          >
-            <Printer className="w-4 h-4 mr-2" />
-            Print
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExport}
-            className="rounded-xl"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="rounded-xl border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead 
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors"
-                onClick={() => handleSort('date')}
-              >
-                Date {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead className="font-semibold">Customer</TableHead>
-              <TableHead className="font-semibold">Product</TableHead>
-              <TableHead 
-                className="font-semibold text-right cursor-pointer hover:bg-muted/70 transition-colors"
-                onClick={() => handleSort('quantity')}
-              >
-                Qty {sortBy === 'quantity' && (sortOrder === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead className="font-semibold text-right">Price</TableHead>
-              <TableHead 
-                className="font-semibold text-right cursor-pointer hover:bg-muted/70 transition-colors"
-                onClick={() => handleSort('total')}
-              >
-                Total {sortBy === 'total' && (sortOrder === 'asc' ? '↑' : '↓')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedSales.map((sale) => (
-              <TableRow 
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border/20">
+            <th className="text-left py-3 px-4 font-medium text-muted-foreground table-header">Date</th>
+            <th className="text-left py-3 px-4 font-medium text-muted-foreground table-header">Customer</th>
+            <th className="text-left py-3 px-4 font-medium text-muted-foreground table-header">Product</th>
+            <th className="text-right py-3 px-4 font-medium text-muted-foreground table-header">Qty</th>
+            <th className="text-right py-3 px-4 font-medium text-muted-foreground table-header">Price</th>
+            <th className="text-right py-3 px-4 font-medium text-muted-foreground table-header">Total</th>
+            <th className="text-center py-3 px-4 font-medium text-muted-foreground table-header">Status</th>
+            <th className="text-right py-3 px-4 font-medium text-muted-foreground table-header">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sales.map((sale) => {
+            const isArchived = sale.is_archived
+            
+            return (
+              <tr 
                 key={sale.id} 
-                className="hover:bg-primary/5 transition-colors"
+                className={`border-b border-border/10 transition-colors ${
+                  isArchived ? 'bg-gray-50/50' : 'hover:bg-primary/5'
+                }`}
               >
-                <TableCell className="text-muted-foreground">
-                  {format(new Date(sale.date), 'MMM d, yyyy HH:mm')}
-                </TableCell>
-                <TableCell className="font-medium">{sale.customer_name}</TableCell>
-                <TableCell>{sale.product_name}</TableCell>
-                <TableCell className="text-right font-mono">{sale.quantity_sold}</TableCell>
-                <TableCell className="text-right font-mono">
+                {/* Date */}
+                <td className="py-3 px-4 table-cell text-muted-foreground">
+                  {sale.date ? format(new Date(sale.date), 'MMM d, yyyy') : '—'}
+                </td>
+                
+                {/* Customer */}
+                <td className="py-3 px-4 table-cell font-medium">
+                  {sale.customer_name || sale.customer?.name || '—'}
+                </td>
+                
+                {/* Product */}
+                <td className="py-3 px-4 table-cell">
+                  {sale.product_name}
+                </td>
+                
+                {/* Quantity */}
+                <td className="py-3 px-4 table-cell-mono text-right">
+                  {sale.quantity_sold}
+                </td>
+                
+                {/* Price */}
+                <td className="py-3 px-4 table-cell-mono text-right">
                   {formatKES(sale.price)}
-                </TableCell>
-                <TableCell className="text-right font-mono font-semibold text-primary">
+                </td>
+                
+                {/* Total */}
+                <td className="py-3 px-4 table-cell-mono text-right font-semibold text-primary">
                   {formatKES(sale.total)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                </td>
+                
+                {/* Status Badge */}
+                <td className="py-3 px-4 text-center">
+                  {isArchived ? (
+                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200 badge-text">
+                      🗃️ Archived
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 badge-text">
+                      ✅ Active
+                    </span>
+                  )}
+                </td>
+                
+                {/* Action Buttons */}
+                <td className="py-3 px-4 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    {/* View Button */}
+                    {onView && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary hover-lift-subtle"
+                        onClick={(e) => { e.stopPropagation(); onView(sale) }}
+                        title="View details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    )}
+                    
+                    {/* Edit Button - Only for active sales */}
+                    {onEdit && !isArchived && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary hover-lift-subtle"
+                        onClick={(e) => { e.stopPropagation(); onEdit(sale) }}
+                        title="Edit sale"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    )}
+                    
+                    {/* Archive/Restore Button */}
+                    {onArchive && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className={`h-8 w-8 p-0 hover-lift-subtle ${
+                          isArchived 
+                            ? 'hover:bg-green-100 hover:text-green-700' 
+                            : 'hover:bg-yellow-100 hover:text-yellow-700'
+                        }`}
+                        onClick={(e) => { 
+                          e.stopPropagation()
+                          isArchived ? onRestore(sale) : onArchive(sale)
+                        }}
+                        title={isArchived ? 'Restore sale' : 'Archive sale'}
+                      >
+                        {isArchived ? <RotateCcw className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                      </Button>
+                    )}
+                    
+                    {/* Delete Button - Only visible when needed */}
+                    {onDelete && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive hover-lift-subtle"
+                        onClick={(e) => { e.stopPropagation(); onDelete(sale) }}
+                        title="Permanently delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
