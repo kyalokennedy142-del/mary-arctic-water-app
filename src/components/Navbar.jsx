@@ -1,6 +1,7 @@
+/* eslint-disable no-unused-vars */
 "use client"
 
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   Users, 
@@ -8,41 +9,69 @@ import {
   ShoppingCart, 
   FileText,
   Menu, 
-  X 
+  X,
+  LogIn,
+  LogOut,
+  User
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabaseClient'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 
 export default function Navbar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
   
   const navItems = [
-    { 
-      path: '/', 
-      label: 'Dashboard', 
-      icon: LayoutDashboard 
-    },
-    { 
-      path: '/customers', 
-      label: 'Customers', 
-      icon: Users 
-    },
-    { 
-      path: '/stock', 
-      label: 'Stock', 
-      icon: Package 
-    },
-    { 
-      path: '/sales', 
-      label: 'Sales', 
-      icon: ShoppingCart 
-    },
-    { 
-      path: '/reports', 
-      label: 'Reports', 
-      icon: FileText 
-    },
+    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/customers', label: 'Customers', icon: Users },
+    { path: '/stock', label: 'Stock', icon: Package },
+    { path: '/sales', label: 'Sales', icon: ShoppingCart },
+    { path: '/reports', label: 'Reports', icon: FileText },
   ]
+
+  // ✅ Check auth state on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
+    getUser()
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null)
+    })
+    
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // ✅ Handle logout
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+      toast.success('Logged out successfully')
+      navigate('/login')
+    } catch (err) {
+      toast.error('Failed to logout')
+    }
+  }
+
+  // ✅ Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user?.user_metadata?.full_name) return 'U'
+    return user.user_metadata.full_name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
 
   return (
     <nav className="sticky top-0 z-50 w-full">
@@ -90,6 +119,55 @@ export default function Navbar() {
                 )
               })}
             </div>
+
+            {/* ✅ Auth Buttons - Desktop (Only shown when not loading) */}
+            {!loading && (
+              <div className="hidden md:flex items-center gap-2">
+                {user ? (
+                  // ✅ Logged in: Show user avatar + logout
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/20">
+                      <div className="w-7 h-7 rounded-full bg-linear-to-br from-primary to-primary-light flex items-center justify-center text-xs font-semibold text-primary-foreground">
+                        {getUserInitials()}
+                      </div>
+                      <span className="text-sm text-foreground/80 hidden lg:inline">
+                        {user.user_metadata?.full_name?.split(' ')[0] || 'User'}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleLogout}
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl px-3"
+                      title="Logout"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : (
+                  // ✅ Not logged in: Show Login/Signup buttons
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate('/login')}
+                      className="text-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl px-3"
+                    >
+                      <LogIn className="w-4 h-4 mr-1" />
+                      Login
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => navigate('/signup')}
+                      className="btn-primary-gradient rounded-xl px-4 text-sm"
+                    >
+                      Sign Up
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Mobile Menu Button - Only visible on mobile/tablet */}
             <button
@@ -141,6 +219,57 @@ export default function Navbar() {
                   </Link>
                 )
               })}
+              
+              {/* ✅ Auth Buttons - Mobile */}
+              {!loading && (
+                <div className="pt-3 mt-3 border-t border-border/20">
+                  {user ? (
+                    // ✅ Logged in: Show user + logout
+                    <>
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/5">
+                        <div className="w-10 h-10 rounded-full bg-linear-to-br from-primary to-primary-light flex items-center justify-center text-sm font-semibold text-primary-foreground">
+                          {getUserInitials()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {user.user_metadata?.full_name || 'User'}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        onClick={() => { handleLogout(); setMobileMenuOpen(false) }}
+                        className="w-full justify-start text-destructive hover:bg-destructive/10 rounded-xl mt-2"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Logout
+                      </Button>
+                    </>
+                  ) : (
+                    // ✅ Not logged in: Show Login/Signup
+                    <>
+                      <Button
+                        variant="ghost"
+                        onClick={() => { navigate('/login'); setMobileMenuOpen(false) }}
+                        className="w-full justify-start text-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl"
+                      >
+                        <LogIn className="w-4 h-4 mr-2" />
+                        Login
+                      </Button>
+                      <Button
+                        variant="default"
+                        onClick={() => { navigate('/signup'); setMobileMenuOpen(false) }}
+                        className="w-full btn-primary-gradient rounded-xl mt-2"
+                      >
+                        Sign Up
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
