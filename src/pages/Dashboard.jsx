@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { 
   TrendingUp, 
   Package, 
@@ -11,9 +11,11 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ChevronRight,
-  Calendar
+  Calendar,
+  ChevronDown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'  // ✅ ADDED: Missing import
 import { useData } from '@/context/DataContext'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
@@ -25,15 +27,64 @@ const formatKES = (amount) => new Intl.NumberFormat('en-KE', {
   minimumFractionDigits: 0
 }).format(amount || 0)
 
+// ✅ Helper: Get local date string in YYYY-MM-DD format (timezone-safe)
+const getLocalDateStr = (date) => {
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// ✅ Helper: Get date range for predefined periods (local timezone)
+const getDateRange = (period) => {
+  const today = new Date()
+  const todayStr = getLocalDateStr(today)
+  
+  switch (period) {
+    case 'today':
+      return { start: todayStr, end: todayStr }
+    case 'yesterday': {
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayStr = getLocalDateStr(yesterday)
+      return { start: yesterdayStr, end: yesterdayStr }
+    }
+    case 'last7days': {
+      const start = new Date(today)
+      start.setDate(start.getDate() - 6)
+      return { start: getLocalDateStr(start), end: todayStr }
+    }
+    case 'last30days': {
+      const start = new Date(today)
+      start.setDate(start.getDate() - 29)
+      return { start: getLocalDateStr(start), end: todayStr }
+    }
+    case 'lastmonth': {
+      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const end = new Date(today.getFullYear(), today.getMonth(), 0)
+      return { start: getLocalDateStr(start), end: getLocalDateStr(end) }
+    }
+    case 'thismonth': {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1)
+      return { start: getLocalDateStr(start), end: todayStr }
+    }
+    case 'custom':
+      return null
+    default:
+      return { start: todayStr, end: todayStr }
+  }
+}
+
 // Simple Line Chart Component for Daily Growth
-const DailyGrowthChart = ({ salesData, activeCustomers }) => {
+// eslint-disable-next-line no-unused-vars
+const DailyGrowthChart = ({ salesData, activeCustomers, dateRange }) => {
   const getLast7Days = () => {
     const days = []
     for (let i = 6; i >= 0; i--) {
       const date = new Date()
       date.setDate(date.getDate() - i)
-      date.setHours(0, 0, 0, 0)
-      days.push(date)
+      days.push(getLocalDateStr(date))
     }
     return days
   }
@@ -41,11 +92,10 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
   const days = getLast7Days()
   const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
   
-  const dailyRevenue = days.map(day => {
+  const dailyRevenue = days.map(dayStr => {
     const daySales = salesData.filter(sale => {
-      const saleDate = new Date(sale.date)
-      saleDate.setHours(0, 0, 0, 0)
-      return saleDate.getTime() === day.getTime() && activeCustomerIds.has(sale.customer_id)
+      const saleDateStr = getLocalDateStr(sale.date)
+      return saleDateStr === dayStr && activeCustomerIds.has(sale.customer_id)
     })
     return daySales.reduce((sum, s) => sum + (s.total || 0), 0)
   })
@@ -118,8 +168,9 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
           )
         })}
         
-        {days.map((day, index) => {
+        {days.map((dayStr, index) => {
           const x = padding + (index * (chartWidth - padding * 2) / (days.length - 1))
+          const date = new Date(dayStr)
           return (
             <text
               key={index}
@@ -128,7 +179,7 @@ const DailyGrowthChart = ({ salesData, activeCustomers }) => {
               textAnchor="middle"
               className="text-[10px] fill-muted-foreground"
             >
-              {day.toLocaleDateString('en-KE', { weekday: 'short' })}
+              {date.toLocaleDateString('en-KE', { weekday: 'short' })}
             </text>
           )
         })}
@@ -150,6 +201,12 @@ export default function Dashboard() {
     stock: [],
     sales: []
   })
+  
+  // ✅ NEW: Period selection state
+  const [selectedPeriod, setSelectedPeriod] = useState('today')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [showDatePicker, setShowDatePicker] = useState(false)
 
   const { getCustomers, getStock, getSales } = useData()
 
@@ -188,74 +245,117 @@ export default function Dashboard() {
 
   // ✅ Filter to only active customers
   const activeCustomers = data.customers.filter(c => !c.is_archived)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
 
-  // Calculate metrics for different time periods
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // ✅ Get current date range based on selected period (FIXED)
+  const currentDateRange = useMemo(() => {
+    if (selectedPeriod === 'custom') {
+      if (customStartDate && customEndDate) {
+        return { start: customStartDate, end: customEndDate }
+      }
+      // Fallback to today if custom dates not set
+      const todayStr = getLocalDateStr(new Date())
+      return { start: todayStr, end: todayStr }
+    }
+    return getDateRange(selectedPeriod)
+  }, [selectedPeriod, customStartDate, customEndDate])
 
-  // Start of week (Sunday)
-  const startOfWeek = new Date(today)
-  startOfWeek.setDate(today.getDate() - today.getDay())
-  startOfWeek.setHours(0, 0, 0, 0)
+  // ✅ Filter sales by date range (timezone-safe)
+  const filteredSales = useMemo(() => {
+    if (!currentDateRange) return []
+    return data.sales.filter(sale => {
+      const saleDateStr = getLocalDateStr(sale.date)
+      return (
+        saleDateStr >= currentDateRange.start &&
+        saleDateStr <= currentDateRange.end &&
+        activeCustomerIds.has(sale.customer_id)
+      )
+    })
+  }, [data.sales, currentDateRange, activeCustomerIds])
 
-  // Start of month
-  const startOfMonth = new Date(today)
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
+  // ✅ Calculate metrics for selected period
+  const periodRevenue = filteredSales.reduce((sum, s) => sum + (s.total || 0), 0)
+  const periodTransactions = filteredSales.length
 
-  // Today's sales
+  // ✅ Calculate comparison metrics (previous period)
+  const getPreviousPeriodRange = () => {
+    if (!currentDateRange) return null
+    const { start, end } = currentDateRange
+    const startNum = parseInt(start.replace(/-/g, ''))
+    const endNum = parseInt(end.replace(/-/g, ''))
+    const daysDiff = Math.floor((endNum - startNum) / 10000 * 30 + (endNum % 10000 - startNum % 10000) / 100)
+    
+    const prevEnd = new Date(start)
+    prevEnd.setDate(prevEnd.getDate() - 1)
+    const prevStart = new Date(prevEnd)
+    prevStart.setDate(prevStart.getDate() - daysDiff + 1)
+    
+    return {
+      start: getLocalDateStr(prevStart),
+      end: getLocalDateStr(prevEnd)
+    }
+  }
+
+  const prevPeriodRange = getPreviousPeriodRange()
+  const prevPeriodRevenue = prevPeriodRange 
+    ? data.sales.filter(sale => {
+        const saleDateStr = getLocalDateStr(sale.date)
+        return (
+          saleDateStr >= prevPeriodRange.start &&
+          saleDateStr <= prevPeriodRange.end &&
+          activeCustomerIds.has(sale.customer_id)
+        )
+      }).reduce((sum, s) => sum + (s.total || 0), 0)
+    : 0
+
+  const periodGrowth = prevPeriodRevenue > 0 
+    ? ((periodRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100 
+    : 0
+
+  // ✅ Today's sales (for quick reference card)
+  const todayStr = getLocalDateStr(new Date())
   const todaysSales = data.sales.filter(sale => {
-    const saleDate = new Date(sale.date)
-    saleDate.setHours(0, 0, 0, 0)
-    return saleDate.getTime() === today.getTime() && activeCustomerIds.has(sale.customer_id)
+    const saleDateStr = getLocalDateStr(sale.date)
+    return saleDateStr === todayStr && activeCustomerIds.has(sale.customer_id)
   })
   const todaysRevenue = todaysSales.reduce((sum, s) => sum + (s.total || 0), 0)
 
-  // This week's sales
+  // ✅ This week's sales (for quick reference card)
+  const today = new Date()
+  const startOfWeek = new Date(today)
+  startOfWeek.setDate(today.getDate() - today.getDay())
+  const startOfWeekStr = getLocalDateStr(startOfWeek)
+  
   const weeklySales = data.sales.filter(sale => {
-    const saleDate = new Date(sale.date)
-    return saleDate >= startOfWeek && saleDate <= today && activeCustomerIds.has(sale.customer_id)
+    const saleDateStr = getLocalDateStr(sale.date)
+    return saleDateStr >= startOfWeekStr && saleDateStr <= todayStr && activeCustomerIds.has(sale.customer_id)
   })
   const weeklyRevenue = weeklySales.reduce((sum, s) => sum + (s.total || 0), 0)
 
-  // This month's sales
+  // ✅ This month's sales (for quick reference card)
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const startOfMonthStr = getLocalDateStr(startOfMonth)
+  
   const monthlySales = data.sales.filter(sale => {
-    const saleDate = new Date(sale.date)
-    return saleDate >= startOfMonth && saleDate <= today && activeCustomerIds.has(sale.customer_id)
+    const saleDateStr = getLocalDateStr(sale.date)
+    return saleDateStr >= startOfMonthStr && saleDateStr <= todayStr && activeCustomerIds.has(sale.customer_id)
   })
+  // eslint-disable-next-line no-unused-vars
   const monthlyRevenue = monthlySales.reduce((sum, s) => sum + (s.total || 0), 0)
 
-  // Calculate growth percentages
-  const lastWeekStart = new Date(startOfWeek)
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7)
-  const lastWeekRevenue = data.sales.filter(sale => {
-    const saleDate = new Date(sale.date)
-    return saleDate >= lastWeekStart && saleDate < startOfWeek && activeCustomerIds.has(sale.customer_id)
-  }).reduce((sum, s) => sum + (s.total || 0), 0)
-
-  const lastMonthStart = new Date(startOfMonth)
-  lastMonthStart.setMonth(lastMonthStart.getMonth() - 1)
-  const lastMonthRevenue = data.sales.filter(sale => {
-    const saleDate = new Date(sale.date)
-    return saleDate >= lastMonthStart && saleDate < startOfMonth && activeCustomerIds.has(sale.customer_id)
-  }).reduce((sum, s) => sum + (s.total || 0), 0)
-
-  const weeklyGrowth = lastWeekRevenue > 0 ? ((weeklyRevenue - lastWeekRevenue) / lastWeekRevenue) * 100 : 0
-  const monthlyGrowth = lastMonthRevenue > 0 ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0
-
-  // Yesterday's sales (for daily comparison)
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdaysSales = data.sales.filter(sale => {
-    const saleDate = new Date(sale.date)
-    saleDate.setHours(0, 0, 0, 0)
-    return saleDate.getTime() === yesterday.getTime() && activeCustomerIds.has(sale.customer_id)
+  // ✅ Last month's sales (for quick reference card)
+  const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
+  const startOfLastMonthStr = getLocalDateStr(startOfLastMonth)
+  const endOfLastMonthStr = getLocalDateStr(endOfLastMonth)
+  
+  const lastMonthSales = data.sales.filter(sale => {
+    const saleDateStr = getLocalDateStr(sale.date)
+    return saleDateStr >= startOfLastMonthStr && saleDateStr <= endOfLastMonthStr && activeCustomerIds.has(sale.customer_id)
   })
-  const yesterdaysRevenue = yesterdaysSales.reduce((sum, s) => sum + (s.total || 0), 0)
-  const revenueChange = yesterdaysRevenue > 0 
-    ? ((todaysRevenue - yesterdaysRevenue) / yesterdaysRevenue) * 100 
-    : 0
+  // eslint-disable-next-line no-unused-vars
+  const lastMonthRevenue = lastMonthSales.reduce((sum, s) => sum + (s.total || 0), 0)
 
   const lowStockItems = data.stock.filter(item => item.quantity <= 10)
   const criticalStock = data.stock.filter(item => item.quantity <= 5)
@@ -298,6 +398,23 @@ export default function Dashboard() {
     low: data.stock.filter(item => item.quantity > 5 && item.quantity <= 10).length,
     critical: criticalStock.length
   }
+
+  // ✅ Period button component
+  const PeriodButton = ({ period, label }) => (
+    <button
+      onClick={() => {
+        setSelectedPeriod(period)
+        setShowDatePicker(false)
+      }}
+      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+        selectedPeriod === period && !showDatePicker
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+      }`}
+    >
+      {label}
+    </button>
+  )
 
   // Loading State
   if (loading) {
@@ -348,9 +465,127 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* ✅ SECTION 1: Key Metrics - Daily/Weekly/Monthly (4 Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-        {/* Today's Sales */}
+      {/* ✅ NEW: Period Selector */}
+      <div className="card p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground mr-2">View:</span>
+          
+          {/* Predefined Period Buttons */}
+          <PeriodButton period="today" label="Today" />
+          <PeriodButton period="yesterday" label="Yesterday" />
+          <PeriodButton period="last7days" label="Last 7 Days" />
+          <PeriodButton period="last30days" label="Last 30 Days" />
+          <PeriodButton period="lastmonth" label="Last Month" />
+          
+          {/* Custom Date Picker Toggle */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                showDatePicker || selectedPeriod === 'custom'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+              }`}
+            >
+              <Calendar className="w-3 h-3" />
+              Custom
+              <ChevronDown className={`w-3 h-3 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* Date Picker Dropdown */}
+            {showDatePicker && (
+              <div className="absolute top-full right-0 mt-2 p-3 bg-card border border-border/30 rounded-xl shadow-lg z-10 min-w-64">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Start Date</Label>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">End Date</Label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setShowDatePicker(false)
+                        setSelectedPeriod('today')
+                      }}
+                      className="flex-1 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (customStartDate && customEndDate) {
+                          setSelectedPeriod('custom')
+                          setShowDatePicker(false)
+                        } else {
+                          toast.error('Please select both dates')
+                        }
+                      }}
+                      className="flex-1 text-xs btn-primary-gradient"
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Current Period Label */}
+          <span className="ml-auto text-xs text-muted-foreground">
+            {selectedPeriod === 'custom' 
+              ? `${customStartDate} → ${customEndDate}`
+              : currentDateRange ? `${currentDateRange.start} → ${currentDateRange.end}` : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* ✅ SECTION 1: Key Metrics - Selected Period + Quick Reference */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+        {/* ✅ Selected Period Revenue (Main Metric) */}
+        <div className="card hover-lift lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">
+              {selectedPeriod === 'custom' ? 'Custom Period' : 
+               selectedPeriod === 'today' ? 'Today' :
+               selectedPeriod === 'yesterday' ? 'Yesterday' :
+               selectedPeriod === 'last7days' ? 'Last 7 Days' :
+               selectedPeriod === 'last30days' ? 'Last 30 Days' :
+               'Last Month'}
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-gradient">{formatKES(periodRevenue)}</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {periodTransactions} transactions
+            {periodGrowth !== 0 && (
+              <span className={`ml-2 ${periodGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {periodGrowth >= 0 ? '↑' : '↓'} {Math.abs(periodGrowth).toFixed(1)}% vs previous
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Today's Sales (Quick Reference) */}
         <div className="card hover-lift">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">Today</span>
@@ -358,18 +593,11 @@ export default function Dashboard() {
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-gradient">{formatKES(todaysRevenue)}</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {todaysSales.length} transactions
-            {revenueChange !== 0 && (
-              <span className={`ml-2 ${revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {revenueChange >= 0 ? '↑' : '↓'} {Math.abs(revenueChange).toFixed(1)}%
-              </span>
-            )}
-          </div>
+          <div className="text-xl font-bold text-blue-600">{formatKES(todaysRevenue)}</div>
+          <div className="text-xs text-muted-foreground mt-1">{todaysSales.length} transactions</div>
         </div>
 
-        {/* This Week's Sales */}
+        {/* This Week's Sales (Quick Reference) */}
         <div className="card hover-lift">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">This Week</span>
@@ -377,37 +605,11 @@ export default function Dashboard() {
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-green-600">{formatKES(weeklyRevenue)}</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {weeklySales.length} transactions
-            {weeklyGrowth !== 0 && (
-              <span className={`ml-2 ${weeklyGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {weeklyGrowth >= 0 ? '↑' : '↓'} {Math.abs(weeklyGrowth).toFixed(1)}%
-              </span>
-            )}
-          </div>
+          <div className="text-xl font-bold text-green-600">{formatKES(weeklyRevenue)}</div>
+          <div className="text-xs text-muted-foreground mt-1">{weeklySales.length} transactions</div>
         </div>
 
-        {/* This Month's Sales */}
-        <div className="card hover-lift">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-muted-foreground">This Month</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
-              <Calendar className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold text-purple-600">{formatKES(monthlyRevenue)}</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {monthlySales.length} transactions
-            {monthlyGrowth !== 0 && (
-              <span className={`ml-2 ${monthlyGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {monthlyGrowth >= 0 ? '↑' : '↓'} {Math.abs(monthlyGrowth).toFixed(1)}%
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Low Stock */}
+        {/* Low Stock (Quick Reference) */}
         <div className="card hover-lift cursor-pointer" onClick={() => navigate('/stock')}>
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">Low Stock</span>
@@ -415,8 +617,8 @@ export default function Dashboard() {
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-warning">{criticalStock.length}</div>
-          <div className="text-xs text-muted-foreground mt-1">{lowStockItems.length} total low items</div>
+          <div className="text-xl font-bold text-warning">{criticalStock.length}</div>
+          <div className="text-xs text-muted-foreground mt-1">{lowStockItems.length} items</div>
         </div>
       </div>
 
@@ -560,30 +762,30 @@ export default function Dashboard() {
             <TrendingUp className="w-5 h-5 text-primary" />
             Daily Sales Growth
           </h2>
-          {revenueChange !== 0 && (
+          {periodGrowth !== 0 && (
             <div className={`flex items-center gap-1 text-sm font-medium px-3 py-1 rounded-full ${
-              revenueChange >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              periodGrowth >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
             }`}>
-              {revenueChange >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-              {Math.abs(revenueChange).toFixed(1)}% vs yesterday
+              {periodGrowth >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+              {Math.abs(periodGrowth).toFixed(1)}% vs previous
             </div>
           )}
         </div>
         
-        <DailyGrowthChart salesData={data.sales} activeCustomers={activeCustomers} />
+        <DailyGrowthChart salesData={data.sales} activeCustomers={activeCustomers} dateRange={currentDateRange} />
         
         <div className="mt-4 pt-4 border-t border-border/20">
           <div className="flex justify-between text-sm">
             <div>
-              <span className="text-muted-foreground">This Week:</span>
+              <span className="text-muted-foreground">Selected Period:</span>
               <span className="font-semibold text-foreground ml-2">
-                {formatKES(weeklyRevenue)}
+                {formatKES(periodRevenue)}
               </span>
             </div>
             <div>
               <span className="text-muted-foreground">Avg/Day:</span>
               <span className="font-semibold text-foreground ml-2">
-                {formatKES(todaysSales.reduce((sum, s) => sum + (s.total || 0), 0) / (todaysSales.length || 1))}
+                {formatKES(periodRevenue / (periodTransactions || 1))}
               </span>
             </div>
           </div>

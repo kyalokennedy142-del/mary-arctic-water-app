@@ -249,7 +249,7 @@ label span[className*="destructive"] {
 
 /* Select dropdown visibility */
 .select-trigger {
-  @apply min-h-[40px] px-3 py-2;
+  @apply min-h-10 px-3 py-2;
 }
 
 .select-content {
@@ -471,7 +471,7 @@ input[type="number"][name="quantity"] {
 /* Touch-friendly sizes for mobile */
 @media (max-width: 767px) {
   .touch-target {
-    @apply min-h-[44px] min-w-[44px]; /* Apple HIG recommendation */
+    @apply min-h-11 min-w-11; /* Apple HIG recommendation */
   }
   
   .touch-spacing {
