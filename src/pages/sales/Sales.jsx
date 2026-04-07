@@ -34,6 +34,10 @@ const getLocalDateStr = (date) => {
   return `${year}-${month}-${day}`
 }
 
+// ✅ ADD: Security utilities for sanitization
+import { useSanitize } from '@/hooks/useSanitize'
+import { logSecurityEvent, SECURITY_EVENTS } from '@/lib/securityLogger'
+
 export default function Sales() {
   const [customers, setCustomers] = useState([])
   const [stock, setStock] = useState([])
@@ -43,7 +47,7 @@ export default function Sales() {
   
   // ✅ Sale management state
   const [editingSale, setEditingSale] = useState(null)
-  const [showEditModal, setShowEditModal] = useState(false) // ✅ Modal state
+  const [showEditModal, setShowEditModal] = useState(false)
   // eslint-disable-next-line no-unused-vars
   const [viewingSale, setViewingSale] = useState(null)
   const [saleToArchive, setSaleToArchive] = useState(null)
@@ -61,6 +65,10 @@ export default function Sales() {
     deleteSale,
     createCustomer
   } = useData()
+
+  // ✅ ADD: Sanitization hook
+  // eslint-disable-next-line no-unused-vars
+  const { sanitize, sanitizeForm } = useSanitize()
 
   // ✅ Load all data
   const loadData = useCallback(async () => {
@@ -115,10 +123,26 @@ export default function Sales() {
     }
   }, [customers, createCustomer])
 
-  // ✅ Handle sale submission
+  // ✅ UPDATED: Handle sale submission with sanitization
   const handleSaleSubmit = async (saleData) => {
     try {
       let finalSaleData = { ...saleData }
+      
+      // ✅ Sanitize text fields (keep numbers as numbers)
+      finalSaleData = {
+        ...sanitizeForm({
+          customer_name: saleData.customer_name,
+          product_name: saleData.product_name,
+          notes: saleData.notes
+        }),
+        // Keep numeric fields as numbers
+        customer_id: saleData.customer_id,
+        product_id: saleData.product_id,
+        quantity_sold: parseInt(saleData.quantity_sold) || 0,
+        price: parseFloat(saleData.price) || 0,
+        total: parseFloat(saleData.total) || 0,
+        date: saleData.date
+      }
       
       // Handle walk-in customer
       if (saleData.customer_id === 'walkin') {
@@ -129,11 +153,29 @@ export default function Sales() {
       
       if (editingSale) {
         await updateSale(editingSale.id, finalSaleData)
+        
+        // ✅ Log security event
+        await logSecurityEvent(SECURITY_EVENTS.DATA_UPDATE, {
+          table: 'sales',
+          recordId: editingSale.id,
+          customer: finalSaleData.customer_name,
+          total: finalSaleData.total
+        })
+        
         setEditingSale(null)
-        setShowEditModal(false) // ✅ Close modal after update
+        setShowEditModal(false)
         toast.success('Sale updated!')
       } else {
-        await createSale(finalSaleData)
+        const newSale = await createSale(finalSaleData)
+        
+        // ✅ Log security event
+        await logSecurityEvent(SECURITY_EVENTS.DATA_CREATE, {
+          table: 'sales',
+          recordId: newSale?.id,
+          customer: finalSaleData.customer_name,
+          total: finalSaleData.total
+        })
+        
         toast.success('Sale recorded!')
       }
       await loadData()
@@ -164,6 +206,15 @@ export default function Sales() {
     if (!saleToArchive?.id) return
     try {
       await archiveSale(saleToArchive.id, 'User requested via UI')
+      
+      // ✅ Log security event
+      await logSecurityEvent(SECURITY_EVENTS.DATA_UPDATE, {
+        table: 'sales',
+        recordId: saleToArchive.id,
+        action: 'archived',
+        customer: saleToArchive.customer_name
+      })
+      
       await loadData()
       toast.success('Sale archived!')
     } catch (err) {
@@ -179,6 +230,15 @@ export default function Sales() {
     if (!saleToArchive?.id) return
     try {
       await restoreSale(saleToArchive.id)
+      
+      // ✅ Log security event
+      await logSecurityEvent(SECURITY_EVENTS.DATA_UPDATE, {
+        table: 'sales',
+        recordId: saleToArchive.id,
+        action: 'restored',
+        customer: saleToArchive.customer_name
+      })
+      
       await loadData()
       toast.success('Sale restored!')
     } catch (err) {
@@ -194,6 +254,14 @@ export default function Sales() {
     if (!saleToDelete?.id) return
     try {
       await deleteSale(saleToDelete.id)
+      
+      // ✅ Log security event
+      await logSecurityEvent(SECURITY_EVENTS.DATA_DELETE, {
+        table: 'sales',
+        recordId: saleToDelete.id,
+        customer: saleToDelete.customer_name
+      })
+      
       await loadData()
       toast.success('Sale permanently deleted!')
     } catch (err) {
@@ -339,7 +407,7 @@ export default function Sales() {
           <SalesTable 
             sales={sales} 
             loading={false}
-            onEdit={openEditModal}  // ✅ Open modal instead of scroll
+            onEdit={openEditModal}
             onArchive={handleArchiveSale}
             onRestore={handleRestoreSale}
             onDelete={handleDeleteSale}

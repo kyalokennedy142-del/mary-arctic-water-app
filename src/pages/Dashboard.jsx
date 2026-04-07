@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
@@ -11,11 +12,10 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ChevronRight,
-  Calendar,
-  ChevronDown
+  Calendar
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'  // ✅ ADDED: Missing import
+import { Label } from '@/components/ui/label'
 import { useData } from '@/context/DataContext'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
@@ -37,9 +37,14 @@ const getLocalDateStr = (date) => {
 }
 
 // ✅ Helper: Get date range for predefined periods (local timezone)
-const getDateRange = (period) => {
+const getDateRange = (period, customDate = null) => {
   const today = new Date()
   const todayStr = getLocalDateStr(today)
+  
+  // ✅ If custom date provided (single date picker), return that date only
+  if (period === 'single-date' && customDate) {
+    return { start: customDate, end: customDate }
+  }
   
   switch (period) {
     case 'today':
@@ -69,16 +74,13 @@ const getDateRange = (period) => {
       const start = new Date(today.getFullYear(), today.getMonth(), 1)
       return { start: getLocalDateStr(start), end: todayStr }
     }
-    case 'custom':
-      return null
     default:
       return { start: todayStr, end: todayStr }
   }
 }
 
 // Simple Line Chart Component for Daily Growth
-// eslint-disable-next-line no-unused-vars
-const DailyGrowthChart = ({ salesData, activeCustomers, dateRange }) => {
+const DailyGrowthChart = ({ salesData, activeCustomers }) => {
   const getLast7Days = () => {
     const days = []
     for (let i = 6; i >= 0; i--) {
@@ -202,15 +204,14 @@ export default function Dashboard() {
     sales: []
   })
   
-  // ✅ NEW: Period selection state
+  // ✅ UPDATED: Period selection state with single date support
   const [selectedPeriod, setSelectedPeriod] = useState('today')
-  const [customStartDate, setCustomStartDate] = useState('')
-  const [customEndDate, setCustomEndDate] = useState('')
+  const [selectedDate, setSelectedDate] = useState('') // ✅ Single date for date picker
   const [showDatePicker, setShowDatePicker] = useState(false)
 
   const { getCustomers, getStock, getSales } = useData()
 
-  // ✅ Load all dashboard data (Fast & Simple)
+  // ✅ Load all dashboard data
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true)
@@ -245,21 +246,12 @@ export default function Dashboard() {
 
   // ✅ Filter to only active customers
   const activeCustomers = data.customers.filter(c => !c.is_archived)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
 
-  // ✅ Get current date range based on selected period (FIXED)
+  // ✅ UPDATED: Get current date range (supports single date)
   const currentDateRange = useMemo(() => {
-    if (selectedPeriod === 'custom') {
-      if (customStartDate && customEndDate) {
-        return { start: customStartDate, end: customEndDate }
-      }
-      // Fallback to today if custom dates not set
-      const todayStr = getLocalDateStr(new Date())
-      return { start: todayStr, end: todayStr }
-    }
-    return getDateRange(selectedPeriod)
-  }, [selectedPeriod, customStartDate, customEndDate])
+    return getDateRange(selectedPeriod, selectedDate)
+  }, [selectedPeriod, selectedDate])
 
   // ✅ Filter sales by date range (timezone-safe)
   const filteredSales = useMemo(() => {
@@ -333,35 +325,11 @@ export default function Dashboard() {
   })
   const weeklyRevenue = weeklySales.reduce((sum, s) => sum + (s.total || 0), 0)
 
-  // ✅ This month's sales (for quick reference card)
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-  const startOfMonthStr = getLocalDateStr(startOfMonth)
-  
-  const monthlySales = data.sales.filter(sale => {
-    const saleDateStr = getLocalDateStr(sale.date)
-    return saleDateStr >= startOfMonthStr && saleDateStr <= todayStr && activeCustomerIds.has(sale.customer_id)
-  })
-  // eslint-disable-next-line no-unused-vars
-  const monthlyRevenue = monthlySales.reduce((sum, s) => sum + (s.total || 0), 0)
-
-  // ✅ Last month's sales (for quick reference card)
-  const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-  const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
-  const startOfLastMonthStr = getLocalDateStr(startOfLastMonth)
-  const endOfLastMonthStr = getLocalDateStr(endOfLastMonth)
-  
-  const lastMonthSales = data.sales.filter(sale => {
-    const saleDateStr = getLocalDateStr(sale.date)
-    return saleDateStr >= startOfLastMonthStr && saleDateStr <= endOfLastMonthStr && activeCustomerIds.has(sale.customer_id)
-  })
-  // eslint-disable-next-line no-unused-vars
-  const lastMonthRevenue = lastMonthSales.reduce((sum, s) => sum + (s.total || 0), 0)
-
   const lowStockItems = data.stock.filter(item => item.quantity <= 10)
   const criticalStock = data.stock.filter(item => item.quantity <= 5)
   const healthyStock = data.stock.filter(item => item.quantity > 10).length
 
-  // Customer segmentation - ✅ Only for active customers
+  // Customer segmentation
   const getCustomerStatus = (customer) => {
     if (customer.is_archived) return 'archived'
     
@@ -404,10 +372,11 @@ export default function Dashboard() {
     <button
       onClick={() => {
         setSelectedPeriod(period)
+        setSelectedDate('') // Clear single date when switching periods
         setShowDatePicker(false)
       }}
       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-        selectedPeriod === period && !showDatePicker
+        selectedPeriod === period && !showDatePicker && !selectedDate
           ? 'bg-primary text-primary-foreground shadow-sm'
           : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
       }`}
@@ -465,7 +434,7 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* ✅ NEW: Period Selector */}
+      {/* ✅ UPDATED: Period Selector with Single Date Picker */}
       <div className="card p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground mr-2">View:</span>
@@ -477,44 +446,40 @@ export default function Dashboard() {
           <PeriodButton period="last30days" label="Last 30 Days" />
           <PeriodButton period="lastmonth" label="Last Month" />
           
-          {/* Custom Date Picker Toggle */}
+          {/* ✅ Single Date Picker */}
           <div className="relative">
             <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
+              onClick={() => {
+                setShowDatePicker(!showDatePicker)
+                if (!showDatePicker) {
+                  setSelectedPeriod('single-date')
+                }
+              }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
-                showDatePicker || selectedPeriod === 'custom'
+                showDatePicker || selectedPeriod === 'single-date'
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
               }`}
             >
               <Calendar className="w-3 h-3" />
-              Custom
-              <ChevronDown className={`w-3 h-3 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+              {selectedDate || 'Pick Date'}
             </button>
             
             {/* Date Picker Dropdown */}
             {showDatePicker && (
               <div className="absolute top-full right-0 mt-2 p-3 bg-card border border-border/30 rounded-xl shadow-lg z-10 min-w-64">
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Start Date</Label>
-                      <input
-                        type="date"
-                        value={customStartDate}
-                        onChange={(e) => setCustomStartDate(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">End Date</Label>
-                      <input
-                        type="date"
-                        value={customEndDate}
-                        onChange={(e) => setCustomEndDate(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                    </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Select Date</Label>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value)
+                        setSelectedPeriod('single-date')
+                      }}
+                      className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -522,6 +487,7 @@ export default function Dashboard() {
                       variant="outline"
                       onClick={() => {
                         setShowDatePicker(false)
+                        setSelectedDate('')
                         setSelectedPeriod('today')
                       }}
                       className="flex-1 text-xs"
@@ -531,11 +497,10 @@ export default function Dashboard() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        if (customStartDate && customEndDate) {
-                          setSelectedPeriod('custom')
+                        if (selectedDate) {
                           setShowDatePicker(false)
                         } else {
-                          toast.error('Please select both dates')
+                          toast.error('Please select a date')
                         }
                       }}
                       className="flex-1 text-xs btn-primary-gradient"
@@ -550,9 +515,13 @@ export default function Dashboard() {
           
           {/* Current Period Label */}
           <span className="ml-auto text-xs text-muted-foreground">
-            {selectedPeriod === 'custom' 
-              ? `${customStartDate} → ${customEndDate}`
-              : currentDateRange ? `${currentDateRange.start} → ${currentDateRange.end}` : ''}
+            {selectedPeriod === 'single-date' && selectedDate
+              ? selectedDate
+              : selectedPeriod === 'today' ? 'Today' :
+                selectedPeriod === 'yesterday' ? 'Yesterday' :
+                selectedPeriod === 'last7days' ? 'Last 7 Days' :
+                selectedPeriod === 'last30days' ? 'Last 30 Days' :
+                selectedPeriod === 'lastmonth' ? 'Last Month' : ''}
           </span>
         </div>
       </div>
@@ -563,12 +532,13 @@ export default function Dashboard() {
         <div className="card hover-lift lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">
-              {selectedPeriod === 'custom' ? 'Custom Period' : 
-               selectedPeriod === 'today' ? 'Today' :
-               selectedPeriod === 'yesterday' ? 'Yesterday' :
-               selectedPeriod === 'last7days' ? 'Last 7 Days' :
-               selectedPeriod === 'last30days' ? 'Last 30 Days' :
-               'Last Month'}
+              {selectedPeriod === 'single-date' && selectedDate
+                ? selectedDate
+                : selectedPeriod === 'today' ? 'Today' :
+                  selectedPeriod === 'yesterday' ? 'Yesterday' :
+                  selectedPeriod === 'last7days' ? 'Last 7 Days' :
+                  selectedPeriod === 'last30days' ? 'Last 30 Days' :
+                  'Last Month'}
             </span>
             <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
@@ -772,7 +742,7 @@ export default function Dashboard() {
           )}
         </div>
         
-        <DailyGrowthChart salesData={data.sales} activeCustomers={activeCustomers} dateRange={currentDateRange} />
+        <DailyGrowthChart salesData={data.sales} activeCustomers={activeCustomers} />
         
         <div className="mt-4 pt-4 border-t border-border/20">
           <div className="flex justify-between text-sm">

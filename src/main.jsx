@@ -8,6 +8,7 @@ import './index.css'
 
 // Context & Providers
 import { DataProvider } from '@/context/DataContext'
+import { AuthProvider } from '@/context/AuthContext'  // ✅ ADDED: Auth context provider
 
 // ✅ Navbar Component (standalone, sticky top)
 import Navbar from '@/components/Navbar'
@@ -41,58 +42,61 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <DataProvider>
-        <HashRouter>
-          <Navbar />
-          <main className="min-h-screen bg-background">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              <Routes>
-                {/* ✅ Public Auth Routes */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                
-                {/* ✅ Protected Routes */}
-                <Route path="/" element={
-                  <ProtectedRoute>
-                    <Navigate to="/dashboard" replace />
-                  </ProtectedRoute>
-                } />
-                <Route path="/dashboard" element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/customers" element={
-                  <ProtectedRoute>
-                    <Customers />
-                  </ProtectedRoute>
-                } />
-                <Route path="/stock" element={
-                  <ProtectedRoute>
-                    <Stock />
-                  </ProtectedRoute>
-                } />
-                <Route path="/sales" element={
-                  <ProtectedRoute>
-                    <Sales />
-                  </ProtectedRoute>
-                } />
-                <Route path="/reports" element={
-                  <ProtectedRoute>
-                    <Reports />
-                  </ProtectedRoute>
-                } />
-                
-                {/* ✅ 404 */}
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </div>
-          </main>
-          <Toaster position="top-right" richColors closeButton />
-        </HashRouter>
-      </DataProvider>
+      {/* ✅ WRAP WITH AuthProvider - enables useAuth() throughout app */}
+      <AuthProvider>
+        <DataProvider>
+          <HashRouter>
+            <Navbar />
+            <main className="min-h-screen bg-background">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <Routes>
+                  {/* ✅ Public Auth Routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  
+                  {/* ✅ Protected Routes */}
+                  <Route path="/" element={
+                    <ProtectedRoute>
+                      <Navigate to="/dashboard" replace />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/customers" element={
+                    <ProtectedRoute>
+                      <Customers />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/stock" element={
+                    <ProtectedRoute>
+                      <Stock />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/sales" element={
+                    <ProtectedRoute>
+                      <Sales />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/reports" element={
+                    <ProtectedRoute>
+                      <Reports />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* ✅ 404 */}
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </div>
+            </main>
+            <Toaster position="top-right" richColors closeButton />
+          </HashRouter>
+        </DataProvider>
+      </AuthProvider>
     </QueryClientProvider>
   </StrictMode>
 )

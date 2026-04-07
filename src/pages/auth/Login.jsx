@@ -9,6 +9,10 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 
+// ✅ ADD: Rate limiting & security logging
+import { checkRateLimit, clearLoginAttempts, getRemainingAttempts } from '@/lib/rateLimiter'
+import { logSecurityEvent, SECURITY_EVENTS } from '@/lib/securityLogger'
+
 export default function Login() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
@@ -17,17 +21,63 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault()
+    
     if (!form.email || !form.password) {
       toast.error('Please enter both email and password')
       return
     }
+    
+    // ✅ STEP 1: Check rate limit BEFORE attempting login
+    const rateLimit = await checkRateLimit(form.email)
+    if (!rateLimit.allowed) {
+      toast.error(rateLimit.message)
+      
+      // Alert on suspicious activity
+      if (rateLimit.waitMinutes > 10) {
+        await logSecurityEvent(SECURITY_EVENTS.BRUTE_FORCE, {
+          email: form.email,
+          waitMinutes: rateLimit.waitMinutes,
+          timestamp: new Date().toISOString()
+        })
+      }
+      return
+    }
+    
     setIsLoading(true)
+    
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: form.email.trim().toLowerCase(),
         password: form.password,
       })
-      if (error) throw error
+      
+      if (error) {
+        // ✅ STEP 2: Log failed login
+        await logSecurityEvent(SECURITY_EVENTS.LOGIN_FAILED, {
+          email: form.email,
+          error: error.message,
+          remainingAttempts: getRemainingAttempts(form.email),
+          timestamp: new Date().toISOString()
+        })
+        
+        // Show remaining attempts warning
+        const remaining = getRemainingAttempts(form.email)
+        const attemptMsg = remaining > 0 
+          ? ` (${remaining} attempts remaining)` 
+          : ''
+        
+        toast.error('Incorrect email or password' + attemptMsg)
+        return
+      }
+      
+      // ✅ STEP 3: Clear attempts on successful login
+      clearLoginAttempts(form.email)
+      
+      await logSecurityEvent(SECURITY_EVENTS.LOGIN_SUCCESS, {
+        email: form.email,
+        timestamp: new Date().toISOString()
+      })
+      
       toast.success('Welcome back!')
       navigate('/dashboard')
     } catch (err) {
@@ -73,6 +123,12 @@ export default function Login() {
                   autoComplete="email"
                 />
               </div>
+              {/* ✅ Rate limit warning */}
+              {form.email && getRemainingAttempts(form.email) <= 2 && !isLoading && (
+                <p className="text-xs text-orange-600 flex items-center gap-1">
+                  ⚠️ {getRemainingAttempts(form.email)} attempts remaining before temporary lock
+                </p>
+              )}
             </div>
 
             {/* Password Field */}

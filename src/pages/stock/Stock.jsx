@@ -20,6 +20,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useData } from "@/context/DataContext"
 import { toast } from "sonner"
 
+// ✅ ADD: Security utilities for sanitization
+import { useSanitize } from '@/hooks/useSanitize'
+import { logSecurityEvent, SECURITY_EVENTS } from '@/lib/securityLogger'
+
 export default function Stock() {
   const [stock, setStock] = useState([])
   const [loading, setLoading] = useState(true)
@@ -27,7 +31,7 @@ export default function Stock() {
   const [addingNew, setAddingNew] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [showOverview, setShowOverview] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false) // ✅ Modal state for edit
+  const [showEditModal, setShowEditModal] = useState(false)
   
   // Search and filter
   const [searchTerm, setSearchTerm] = useState('')
@@ -40,13 +44,16 @@ export default function Stock() {
 
   const { getStock, createStock, updateStock, deleteStock } = useData()
 
+  // ✅ ADD: Sanitization hook
+  // eslint-disable-next-line no-unused-vars
+  const { sanitize, sanitizeForm } = useSanitize()
+
   // Load stock
   const loadStock = useCallback(async () => {
     try {
       setLoading(true)
       const data = await getStock()
       setStock(data || [])
-      console.log('✅ Loaded stock:', data?.length, 'products')
     } catch (err) {
       console.error('Failed to load stock:', err)
       toast.error('Failed to load stock')
@@ -71,16 +78,51 @@ export default function Stock() {
     return 'healthy'
   }
 
-  // Handle form submission (add/edit)
+  // ✅ UPDATED: Handle form submission with sanitization
   const handleSubmit = useCallback(async (formData) => {
+    // ✅ STEP 1: Sanitize text fields only (keep numbers as numbers)
+    const sanitizedData = {
+      ...sanitizeForm({
+        product_name: formData.product_name,
+        category: formData.category,
+        description: formData.description,
+        supplier: formData.supplier
+      }),
+      // ✅ Keep numeric fields as numbers (don't sanitize numbers)
+      quantity: parseInt(formData.quantity) || 0,
+      selling_price: parseFloat(formData.selling_price) || 0,
+      cost_price: parseFloat(formData.cost_price) || 0,
+      reorder_level: parseInt(formData.reorder_level) || 10,
+      is_active: formData.is_active !== false
+    }
+    
     try {
       if (editingItem) {
-        await updateStock(editingItem.id, formData)
+        // ✅ Update existing stock with sanitized data
+        await updateStock(editingItem.id, sanitizedData)
+        
+        // ✅ Log security event
+        await logSecurityEvent(SECURITY_EVENTS.DATA_UPDATE, {
+          table: 'stock',
+          recordId: editingItem.id,
+          product: sanitizedData.product_name,
+          changes: { quantity: sanitizedData.quantity, price: sanitizedData.selling_price }
+        })
+        
         setEditingItem(null)
-        setShowEditModal(false) // ✅ Close modal after update
+        setShowEditModal(false)
         toast.success('Product updated!')
       } else {
-        await createStock(formData)
+        // ✅ Create new stock with sanitized data
+        const newStock = await createStock(sanitizedData)
+        
+        // ✅ Log security event
+        await logSecurityEvent(SECURITY_EVENTS.DATA_CREATE, {
+          table: 'stock',
+          recordId: newStock?.id,
+          product: sanitizedData.product_name
+        })
+        
         setAddingNew(false)
         toast.success('Product added!')
       }
@@ -91,12 +133,20 @@ export default function Stock() {
       toast.error('Failed to save product')
       return false
     }
-  }, [editingItem, createStock, updateStock, loadStock])
+  }, [editingItem, createStock, updateStock, loadStock, sanitizeForm])
 
-  // Handle delete
+  // ✅ UPDATED: Handle delete with security logging
   const handleDelete = useCallback(async (item) => {
     try {
       await deleteStock(item.id)
+      
+      // ✅ Log security event
+      await logSecurityEvent(SECURITY_EVENTS.DATA_DELETE, {
+        table: 'stock',
+        recordId: item.id,
+        product: item.product_name
+      })
+      
       await loadStock()
       toast.success('Product deleted')
       setDeleteConfirm(null)
@@ -203,14 +253,14 @@ export default function Stock() {
       : <ChevronDown className="w-4 h-4 text-primary" />
   }
 
-  // ✅ Open edit modal
+  // Open edit modal
   const openEditModal = useCallback((item) => {
     setEditingItem(item)
     setAddingNew(false)
     setShowEditModal(true)
   }, [])
 
-  // ✅ Close edit modal
+  // Close edit modal
   const closeEditModal = useCallback(() => {
     setEditingItem(null)
     setShowEditModal(false)
@@ -269,7 +319,7 @@ export default function Stock() {
         </Button>
       </div>
 
-      {/* Product Overview Grid - Shows/Hide with Toggle */}
+      {/* Product Overview Grid */}
       {showOverview && (
         <div className="card animate-fade-in">
           <div className="flex items-center justify-between mb-4">
@@ -310,7 +360,7 @@ export default function Stock() {
                     <span className="font-medium">{formatKES(item.quantity * item.selling_price)}</span>
                   </div>
                   
-                  {/* ✅ Edit Button - Opens Modal (No Scrolling!) */}
+                  {/* Edit Button - Opens Modal */}
                   <div className="flex gap-2 mt-3 pt-2 border-t border-border/20">
                     <Button 
                       size="sm" 
@@ -373,7 +423,6 @@ export default function Stock() {
             </SelectContent>
           </Select>
           
-          {/* ✅ Add Product - Still scrolls to form (for new products) */}
           <Button 
             onClick={() => { setAddingNew(true); setEditingItem(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
             className="btn-primary-gradient rounded-xl hover-lift-subtle"
@@ -408,7 +457,7 @@ export default function Stock() {
         </div>
       )}
 
-      {/* Add Product Form (Only for NEW products - scrolls to top) */}
+      {/* Add Product Form */}
       {addingNew && !editingItem && (
         <div className="card animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
@@ -434,11 +483,10 @@ export default function Stock() {
         </div>
       )}
 
-      {/* ✅ EDIT MODAL - Popup for editing (No scrolling!) */}
+      {/* ✅ EDIT MODAL - Popup for editing */}
       {showEditModal && editingItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="card max-w-2xl w-full shadow-xl relative">
-            {/* Modal Header */}
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/20">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Pencil className="w-5 h-5 text-primary" />
@@ -454,7 +502,6 @@ export default function Stock() {
               </Button>
             </div>
             
-            {/* Modal Form */}
             <StockForm 
               onSubmit={handleSubmit}
               editingItem={editingItem}
@@ -538,7 +585,6 @@ export default function Stock() {
                     <td className="py-4 px-4 text-center"><StockBadge quantity={item.quantity} /></td>
                     <td className="py-4 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {/* ✅ Table Edit Button - Opens Modal (No Scrolling!) */}
                         <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary hover-lift-subtle" onClick={() => openEditModal(item)}>
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -579,7 +625,7 @@ export default function Stock() {
   )
 }
 
-// Stock Form Component (unchanged)
+// Stock Form Component (unchanged - sanitization handled in parent)
 function StockForm({ onSubmit, editingItem, onCancel }) {
   const [form, setForm] = useState({
     product_name: editingItem?.product_name || '',
