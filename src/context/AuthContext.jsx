@@ -9,47 +9,42 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [userRole, setUserRole] = useState('admin')
-  const [loading, setLoading] = useState(true) // Start as loading
+  const [loading, setLoading] = useState(true)
+  // eslint-disable-next-line no-unused-vars
   const [authError, setAuthError] = useState(null)
 
-  // ✅ Get user role - with timeout fallback
-  const getUserRole = async (userId, timeoutMs = 5000) => {
+  // ✅ Get user role - with graceful fallback (NO TIMEOUT)
+  const getUserRole = async (userId) => {
     try {
-      // Timeout promise
-      const timeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Role fetch timeout')), timeoutMs)
-      )
-      
-      // Race between fetch and timeout
-      const { data: profile } = await Promise.race([
-        supabase.from('user_profiles').select('role').eq('id', userId).single(),
-        timeout
-      ])
+      // Simple query - no timeout wrapper that can cause issues
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', userId)
+        .single()
       
       return profile?.role || 'admin'
     } catch (error) {
-      console.warn('⚠️ Could not fetch user role (using default):', error.message)
-      return 'admin' // Safe default - both users are admins
+      // ✅ Always return safe default - both users are admins anyway
+      console.warn('⚠️ Using default role (admin):', error.message)
+      return 'admin'
     }
   }
 
   useEffect(() => {
     let isMounted = true
-    
+    let authSubscription = null
+
     const initializeAuth = async () => {
       try {
-        // ✅ Get session with timeout
-        const sessionPromise = supabase.auth.getSession()
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session check timeout')), 10000)
-        )
-        
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise])
+        // ✅ Simple session check - NO timeout wrapper
+        // Supabase handles its own internal timeouts
+        const { data: { session } } = await supabase.auth.getSession()
         
         if (!isMounted) return
         
         if (session?.user) {
-          // ✅ Email whitelist check
+          // ✅ Email whitelist check (only Mary & Kennedy)
           const allowedEmails = [
             'nyamburamary89@gmail.com',
             'kyalokennedy142@gmail.com'
@@ -60,7 +55,7 @@ export function AuthProvider({ children }) {
             await supabase.auth.signOut()
             toast.error('Access denied. Authorized users only.')
             setUser(null)
-            setLoading(false) // ✅ Always resolve loading
+            setLoading(false)
             return
           }
           
@@ -72,18 +67,30 @@ export function AuthProvider({ children }) {
             setUserRole(role)
           }
         } else {
-          // No session = not logged in
+          // No session = not logged in (normal state)
           setUser(null)
         }
         
       } catch (error) {
-        console.error('❌ Auth initialization error:', error)
-        setAuthError(error.message)
-        // ✅ CRITICAL: Always resolve loading even on error
-        setUser(null)
-        setUserRole('admin')
+        // ✅ Handle errors gracefully - don't crash the app
+        console.warn('⚠️ Auth init warning (continuing):', error.message)
+        
+        // Still try to get session as fallback
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session?.user) {
+            const allowedEmails = ['nyamburamary89@gmail.com', 'kyalokennedy142@gmail.com']
+            if (allowedEmails.includes(session.user.email)) {
+              setUser(session.user)
+              const role = await getUserRole(session.user.id)
+              if (isMounted) setUserRole(role)
+            }
+          }
+        } catch (fallbackError) {
+          console.warn('⚠️ Fallback auth also failed:', fallbackError.message)
+        }
       } finally {
-        // ✅ CRITICAL: Always set loading to false
+        // ✅ ALWAYS resolve loading - critical for app to render
         if (isMounted) {
           setLoading(false)
         }
@@ -92,8 +99,8 @@ export function AuthProvider({ children }) {
 
     initializeAuth()
 
-    // ✅ Auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    // ✅ Auth state change listener - handles login/logout/refresh
+    authSubscription = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return
         
@@ -122,10 +129,12 @@ export function AuthProvider({ children }) {
       }
     )
 
-    // ✅ Cleanup
+    // ✅ Cleanup on unmount
     return () => {
       isMounted = false
-      subscription.unsubscribe()
+      if (authSubscription?.unsubscribe) {
+        authSubscription.unsubscribe()
+      }
     }
   }, [])
 
