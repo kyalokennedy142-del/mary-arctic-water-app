@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useData } from '@/context/DataContext'
+import { debugSupabase, startTiming, endTiming, addTimingEvent } from '@/lib/debug'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 
@@ -215,19 +216,30 @@ export default function Dashboard() {
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true)
+      debugSupabase('📊 Dashboard: Starting data load (getCustomers, getStock, getSales)')
+      startTiming('dashboard-load')
+      
+      addTimingEvent('dashboard-load', 'promise-all-start')
       const [customers, stock, sales] = await Promise.all([
         getCustomers(),
         getStock(),
         getSales()
       ])
+      addTimingEvent('dashboard-load', 'promise-all-complete')
+      
+      debugSupabase(`✅ Dashboard data loaded: ${customers?.length || 0} customers, ${stock?.length || 0} stock items, ${sales?.length || 0} sales`)
+      
       setData({
         customers: customers || [],
         stock: stock || [],
         sales: sales || []
       })
+      endTiming('dashboard-load')
     } catch (error) {
+      debugSupabase(`❌ Dashboard load error: ${error.message}`)
       console.error('Dashboard load error:', error)
       toast.error('Failed to load dashboard data')
+      endTiming('dashboard-load')
     } finally {
       setLoading(false)
     }

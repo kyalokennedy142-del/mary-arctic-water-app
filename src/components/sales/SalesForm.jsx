@@ -24,7 +24,6 @@ export default function SalesForm({
   editingSale = null,
   onCancel
 }) {
-  // ✅ Use key to force re-render when editing
   const [formKey, setFormKey] = useState(0)
   
   const [form, setForm] = useState({
@@ -45,13 +44,8 @@ export default function SalesForm({
   // ✅ INSTANT AUTO-FILL when editingSale changes
   useEffect(() => {
     if (editingSale) {
-      console.log('📝 Editing sale:', editingSale)
-      
-      // Find product to get category
       const product = stock.find(s => s.id === editingSale.product_id)
-      console.log('📦 Found product:', product)
       
-      // Update form with sale data
       const newForm = {
         customer_id: editingSale.customer_id || '',
         category: product?.category || '',
@@ -62,11 +56,10 @@ export default function SalesForm({
         notes: editingSale.notes || ''
       }
       
-      console.log('✅ Setting form to:', newForm)
       setForm(newForm)
       setSelectedStock(product || null)
       setShowPriceWarning(false)
-      setFormKey(prev => prev + 1) // ✅ Force re-render
+      setFormKey(prev => prev + 1)
     }
   }, [editingSale, stock])
 
@@ -78,22 +71,19 @@ export default function SalesForm({
     item.quantity > 0 && (!form.category || item.category === form.category)
   )
 
-  // Auto-fill price when product changes (only for new sales)
+  // Auto-fill price when product changes
   useEffect(() => {
-    if (form.product_id && !editingSale) {
+    if (form.product_id) {
       const product = stock.find(s => s.id === form.product_id)
       if (product) {
         setForm(prev => ({ ...prev, price: product.selling_price.toString() }))
         setSelectedStock(product)
         setShowPriceWarning(false)
       }
-    } else if (form.product_id && editingSale) {
-      const product = stock.find(s => s.id === form.product_id)
-      setSelectedStock(product)
     } else {
       setSelectedStock(null)
     }
-  }, [form.product_id, stock, editingSale])
+  }, [form.product_id, stock])
 
   // Price warning
   useEffect(() => {
@@ -121,7 +111,7 @@ export default function SalesForm({
     return Object.keys(newErrors).length === 0
   }, [form, selectedStock])
 
-  // Submit
+  // ✅ Submit with product_name always included
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validateForm()) {
@@ -138,7 +128,8 @@ export default function SalesForm({
         customer_id: form.customer_id,
         customer_name: customer?.name || 'Unknown',
         product_id: form.product_id,
-        product_name: product?.product_name || 'Unknown',
+        // ✅ ALWAYS include product_name from selected product
+        product_name: product?.product_name || 'Unknown Product',
         quantity_sold: parseInt(form.quantity),
         price: parseFloat(form.price),
         total: parseInt(form.quantity) * parseFloat(form.price),

@@ -14,17 +14,19 @@ import {
   LogOut,
   User
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/context/AuthContext'
 
 export default function Navbar() {
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  
+  // ✅ FIX: Use AuthContext instead of duplicate getSession call
+  const { user, loading } = useAuth()
   
   const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -33,23 +35,6 @@ export default function Navbar() {
     { path: '/sales', label: 'Sales', icon: ShoppingCart },
     { path: '/reports', label: 'Reports', icon: FileText },
   ]
-
-  // ✅ Check auth state on mount
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      setLoading(false)
-    }
-    getUser()
-    
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
-    })
-    
-    return () => subscription.unsubscribe()
-  }, [])
 
   // ✅ Handle logout
   const handleLogout = async () => {

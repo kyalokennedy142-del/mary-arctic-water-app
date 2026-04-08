@@ -1,5 +1,7 @@
+/* eslint-disable no-unused-vars */
 import { createContext, useContext, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { debugRLS, debugRLSError, debugSupabase, startTiming, endTiming, addTimingEvent } from '@/lib/debug'
 import { toast } from 'sonner'
 
 const DataContext = createContext(null)
@@ -12,31 +14,39 @@ export const useData = () => {
 }
 
 export function DataProvider({ children }) {
-  // eslint-disable-next-line no-unused-vars
   const [globalLoading, setGlobalLoading] = useState(false)
-  // eslint-disable-next-line no-unused-vars
   const [globalError, setGlobalError] = useState(null)
 
-  // ✅ HELPER: Safe fetch with RLS error handling (DEFINED HERE)
+  // ✅ HELPER: Safe fetch with RLS error handling
   const safeFetch = useCallback(async (query, errorMessage = 'Operation failed') => {
+    const queryKey = `safeFetch-${Math.random().toString(36).substring(7)}`
+    startTiming(queryKey)
+    addTimingEvent(queryKey, 'safeFetch-start')
+    
     try {
       const { data, error } = await query
+      addTimingEvent(queryKey, 'query-complete')
       
       if (error) {
-        // Handle RLS violation (403)
         if (error.code === '42501' || error.status === 403) {
-          console.warn('⚠️ RLS access denied:', errorMessage)
+          debugRLSError(error, errorMessage)
+          debugRLS(`🔐 RLS violation on: ${errorMessage}`, { code: error.code, status: error.status })
           toast.error('Access denied. Please contact admin.')
+          endTiming(queryKey)
           return { data: [], error: null }
         }
-        console.error(`${errorMessage}:`, error)
+        debugSupabase(`❌ Query error on ${errorMessage}:`, error)
         toast.error(errorMessage + ': ' + error.message)
+        endTiming(queryKey)
         return { data: [], error }
       }
+      debugSupabase(`✅ ${errorMessage} - success`)
+      endTiming(queryKey)
       return { data: data || [], error: null }
     } catch (err) {
-      console.error(`${errorMessage}:`, err)
+      debugSupabase(`❌ Unexpected error on ${errorMessage}:`, err)
       toast.error('Unexpected error: ' + err.message)
+      endTiming(queryKey)
       return { data: [], error: err }
     }
   }, [])
@@ -45,14 +55,12 @@ export function DataProvider({ children }) {
   const sanitizeForDatabase = (data) => {
     const sanitized = {}
     for (const [key, value] of Object.entries(data)) {
-      // Skip IDs, numbers, booleans, dates
       if (key.endsWith('_id') || key === 'id' || 
           typeof value === 'number' || 
           typeof value === 'boolean' ||
           value instanceof Date) {
         sanitized[key] = value
       } else if (typeof value === 'string') {
-        // Sanitize strings to prevent XSS
         sanitized[key] = value
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
@@ -74,7 +82,7 @@ export function DataProvider({ children }) {
   const getCustomers = useCallback(async (includeArchived = false) => {
     let query = supabase
       .from('customers')
-      .select('id, name, phone, location, is_archived, created_at') // ✅ NO trailing comma
+      .select('id, name, phone, location, is_archived, created_at')
       .order('created_at', { ascending: false })
     
     if (!includeArchived) query = query.eq('is_archived', false)
@@ -126,7 +134,6 @@ export function DataProvider({ children }) {
 
   const deleteCustomer = useCallback(async (id) => {
     if (!id) throw new Error('Invalid customer ID')
-    // Delete related sales first
     await supabase.from('sales').delete().eq('customer_id', id)
     const { error } = await safeFetch(
       supabase.from('customers').delete().eq('id', id),
@@ -142,7 +149,7 @@ export function DataProvider({ children }) {
 
   const getStock = useCallback(async () => {
     const { data } = await safeFetch(
-      supabase.from('stock').select('id, product_name, category, quantity, selling_price, cost_price, reorder_level, is_active').order('product_name'), // ✅ NO trailing comma
+      supabase.from('stock').select('id, product_name, category, quantity, selling_price, cost_price, reorder_level, is_active').order('product_name'),
       'Failed to load stock'
     )
     return data
@@ -193,7 +200,6 @@ export function DataProvider({ children }) {
       toast.error('Insufficient stock')
       throw new Error('Not enough stock')
     }
-    // eslint-disable-next-line no-unused-vars
     const { data, error } = await safeFetch(
       supabase.from('stock').update({ quantity: current.quantity - quantitySold, updated_at: new Date().toISOString() }).eq('id', id).select().single(),
       'Failed to reduce stock'
@@ -202,13 +208,14 @@ export function DataProvider({ children }) {
   }, [safeFetch])
 
   // ============================================
-  // SALES - Fixed: NO created_at column
+  // SALES - ✅ FIXED: Include product_name in select
   // ============================================
 
   const getSales = useCallback(async (includeArchived = false) => {
     let query = supabase
       .from('sales')
-      .select('id, customer_id, product_id, quantity_sold, price, total, date, is_archived') // ✅ NO created_at, NO trailing comma
+      // ✅ FIXED: Added product_name, customer_name and notes to select
+      .select('id, customer_id, customer_name, product_id, product_name, quantity_sold, price, total, date, is_archived, notes')
       .order('date', { ascending: false })
       .limit(100)
     
@@ -223,17 +230,18 @@ export function DataProvider({ children }) {
     const { data: customer } = await supabase.from('customers').select('is_archived').eq('id', saleData.customer_id).single()
     if (customer?.is_archived) throw new Error('Cannot record sale for archived customer')
     
-    // Insert sale - ✅ NO created_at in select
+    // ✅ FIXED: Ensure product_name is included in insert and select
     const { data: sale, error: saleError } = await safeFetch(
       supabase.from('sales').insert([{ 
         customer_id: saleData.customer_id,
         product_id: saleData.product_id,
+        product_name: saleData.product_name || 'Unknown Product', // ✅ Save product_name
         quantity_sold: parseInt(saleData.quantity_sold),
         price: parseFloat(saleData.price),
         total: parseFloat(saleData.total),
         date: saleData.date || new Date().toISOString(),
         notes: saleData.notes || null
-      }]).select('id, total, date').single(), // ✅ Only select existing columns
+      }]).select('id, product_name, total, date, notes').single(), // ✅ Select product_name
       'Failed to record sale'
     )
     if (saleError) throw saleError
@@ -250,6 +258,7 @@ export function DataProvider({ children }) {
     const { data, error } = await safeFetch(
       supabase.from('sales').update({
         ...saleData,
+        product_name: saleData.product_name, // ✅ Keep product_name on update
         quantity_sold: saleData.quantity_sold !== undefined ? parseInt(saleData.quantity_sold) : undefined,
         price: saleData.price !== undefined ? parseFloat(saleData.price) : undefined,
         total: saleData.total !== undefined ? parseFloat(saleData.total) : undefined,
@@ -292,7 +301,7 @@ export function DataProvider({ children }) {
   }, [safeFetch])
 
   // ============================================
-  // CONTEXT VALUE - Function-based API
+  // CONTEXT VALUE
   // ============================================
 
   const value = {

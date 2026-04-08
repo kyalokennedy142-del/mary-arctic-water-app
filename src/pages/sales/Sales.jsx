@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useData } from "@/context/DataContext"
+import { debugSupabase, startTiming, endTiming, addTimingEvent } from "@/lib/debug"
 import { toast } from "sonner"
 import SalesForm from "@/components/sales/SalesForm"
 import SalesTable from "@/components/sales/SalesTable"
@@ -74,18 +75,29 @@ export default function Sales() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
+      debugSupabase('🛒 Sales: Starting data load (getCustomers, getStock, getSales)')
+      startTiming('sales-load')
+      
+      addTimingEvent('sales-load', 'promise-all-start')
       const [c, s, salesData] = await Promise.all([
         getCustomers(),
         getStock(),
         getSales(showArchived)
       ])
+      addTimingEvent('sales-load', 'promise-all-complete')
+      
+      debugSupabase(`✅ Sales data loaded: ${c?.length || 0} customers, ${s?.length || 0} stock items, ${salesData?.length || 0} sales`)
+      
       setCustomers(c || [])
       setStock(s || [])
       setSales(salesData || [])
       setLastRefresh(new Date())
+      endTiming('sales-load')
     } catch (error) {
+      debugSupabase(`❌ Sales load error: ${error.message}`)
       console.error('Load error:', error)
       toast.error('Failed to load data')
+      endTiming('sales-load')
     } finally {
       setLoading(false)
     }
