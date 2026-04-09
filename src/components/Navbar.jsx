@@ -39,11 +39,21 @@ export default function Navbar() {
   // ✅ Handle logout
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut()
-      toast.success('Logged out successfully')
-      navigate('/login')
-    } catch (err) {
-      toast.error('Failed to logout')
+      // 1. Tell Supabase to sign out globally
+      await supabase.auth.signOut();
+      
+      // 2. Clear everything from the browser storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 3. Force a hard redirect to the login page
+      // This resets the app state completely
+      window.location.href = '/login'; 
+    } catch (error) {
+      console.error("Error logging out:", error);
+      // Even if Supabase fails, clear the local data anyway
+      localStorage.clear();
+      window.location.reload();
     }
   }
 

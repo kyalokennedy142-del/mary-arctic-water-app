@@ -131,18 +131,11 @@ export default function Customers() {
     const sanitizedData = sanitizeForm({
       name: formData.name,
       phone: formData.phone,
-      location: formData.location,
-      email: formData.email
+      location: formData.location
     })
     
-    // ✅ STEP 2: Validate email/phone format
-    const emailCheck = sanitizeEmail(sanitizedData.email)
+    // ✅ STEP 2: Validate phone format only
     const phoneCheck = sanitizePhone(sanitizedData.phone)
-    
-    if (sanitizedData.email && !emailCheck.isValid) {
-      toast.error('Please enter a valid email address')
-      return false
-    }
     
     if (sanitizedData.phone && !phoneCheck.isValid) {
       toast.error('Please enter a valid Kenya phone number')
@@ -154,7 +147,6 @@ export default function Customers() {
         // ✅ Update existing customer with sanitized data
         await updateCustomer(editingCustomer.id, {
           ...sanitizedData,
-          email: emailCheck.value || null,
           phone: phoneCheck.value || null
         })
         
@@ -171,7 +163,6 @@ export default function Customers() {
         // ✅ Create new customer with sanitized data
         const newCustomer = await createCustomer({
           ...sanitizedData,
-          email: emailCheck.value || null,
           phone: phoneCheck.value || null
         })
         
@@ -192,6 +183,7 @@ export default function Customers() {
       toast.error('Failed to save customer: ' + err.message)
       return false
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingCustomer, createCustomer, updateCustomer, loadData, sanitizeForm, sanitizeEmail, sanitizePhone])
 
   // Handle edit click

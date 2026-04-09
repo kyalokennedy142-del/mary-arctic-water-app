@@ -37,14 +37,19 @@ const getLocalDateStr = (date) => {
   return `${year}-${month}-${day}`
 }
 
-// ✅ Helper: Get date range for predefined periods (local timezone)
-const getDateRange = (period, customDate = null) => {
+// ✅ Helper: Get date range for predefined periods or custom range (local timezone)
+const getDateRange = (period, customStartDate = null, customEndDate = null) => {
   const today = new Date()
   const todayStr = getLocalDateStr(today)
   
-  // ✅ If custom date provided (single date picker), return that date only
-  if (period === 'single-date' && customDate) {
-    return { start: customDate, end: customDate }
+  // ✅ If custom date range provided, return that range
+  if (period === 'custom-range' && customStartDate && customEndDate) {
+    // Ensure start date is not after end date
+    if (customStartDate <= customEndDate) {
+      return { start: customStartDate, end: customEndDate }
+    }
+    // If start is after end, swap them
+    return { start: customEndDate, end: customStartDate }
   }
   
   switch (period) {
@@ -205,9 +210,10 @@ export default function Dashboard() {
     sales: []
   })
   
-  // ✅ UPDATED: Period selection state with single date support
+  // ✅ UPDATED: Period selection state with custom date range support
   const [selectedPeriod, setSelectedPeriod] = useState('today')
-  const [selectedDate, setSelectedDate] = useState('') // ✅ Single date for date picker
+  const [selectedStartDate, setSelectedStartDate] = useState('') // ✅ Start date for date range picker
+  const [selectedEndDate, setSelectedEndDate] = useState('') // ✅ End date for date range picker
   const [showDatePicker, setShowDatePicker] = useState(false)
 
   const { getCustomers, getStock, getSales } = useData()
@@ -260,10 +266,10 @@ export default function Dashboard() {
   const activeCustomers = data.customers.filter(c => !c.is_archived)
   const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
 
-  // ✅ UPDATED: Get current date range (supports single date)
+  // ✅ UPDATED: Get current date range (supports custom range)
   const currentDateRange = useMemo(() => {
-    return getDateRange(selectedPeriod, selectedDate)
-  }, [selectedPeriod, selectedDate])
+    return getDateRange(selectedPeriod, selectedStartDate, selectedEndDate)
+  }, [selectedPeriod, selectedStartDate, selectedEndDate])
 
   // ✅ Filter sales by date range (timezone-safe)
   const filteredSales = useMemo(() => {
@@ -384,11 +390,12 @@ export default function Dashboard() {
     <button
       onClick={() => {
         setSelectedPeriod(period)
-        setSelectedDate('') // Clear single date when switching periods
+        setSelectedStartDate('') // Clear dates when switching periods
+        setSelectedEndDate('')
         setShowDatePicker(false)
       }}
       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-        selectedPeriod === period && !showDatePicker && !selectedDate
+        selectedPeriod === period && !showDatePicker
           ? 'bg-primary text-primary-foreground shadow-sm'
           : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
       }`}
@@ -446,7 +453,7 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* ✅ UPDATED: Period Selector with Single Date Picker */}
+      {/* ✅ UPDATED: Period Selector with Custom Date Range Picker */}
       <div className="card p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground mr-2">View:</span>
@@ -458,48 +465,82 @@ export default function Dashboard() {
           <PeriodButton period="last30days" label="Last 30 Days" />
           <PeriodButton period="lastmonth" label="Last Month" />
           
-          {/* ✅ Single Date Picker */}
+          {/* ✅ Custom Date Range Picker */}
           <div className="relative">
             <button
               onClick={() => {
                 setShowDatePicker(!showDatePicker)
                 if (!showDatePicker) {
-                  setSelectedPeriod('single-date')
+                  setSelectedPeriod('custom-range')
                 }
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
-                showDatePicker || selectedPeriod === 'single-date'
+                showDatePicker || selectedPeriod === 'custom-range'
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
               }`}
             >
               <Calendar className="w-3 h-3" />
-              {selectedDate || 'Pick Date'}
+              {selectedStartDate && selectedEndDate
+                ? `${selectedStartDate} → ${selectedEndDate}`
+                : 'Date Range'}
             </button>
             
-            {/* Date Picker Dropdown */}
+            {/* Date Range Picker Dropdown */}
             {showDatePicker && (
-              <div className="absolute top-full right-0 mt-2 p-3 bg-card border border-border/30 rounded-xl shadow-lg z-10 min-w-64">
-                <div className="space-y-3">
+              <div className="absolute top-full right-0 mt-2 p-4 bg-card border border-border/30 rounded-xl shadow-lg z-10 min-w-80">
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm text-foreground">Select Date Range</h3>
+                  
+                  {/* Start Date */}
                   <div>
-                    <Label className="text-xs text-muted-foreground">Select Date</Label>
+                    <Label className="text-xs text-muted-foreground">Start Date</Label>
                     <input
                       type="date"
-                      value={selectedDate}
+                      value={selectedStartDate}
                       onChange={(e) => {
-                        setSelectedDate(e.target.value)
-                        setSelectedPeriod('single-date')
+                        setSelectedStartDate(e.target.value)
+                        setSelectedPeriod('custom-range')
                       }}
                       className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
+                  
+                  {/* End Date */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">End Date</Label>
+                    <input
+                      type="date"
+                      value={selectedEndDate}
+                      onChange={(e) => {
+                        setSelectedEndDate(e.target.value)
+                        setSelectedPeriod('custom-range')
+                      }}
+                      className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  
+                  {/* Info */}
+                  {selectedStartDate && selectedEndDate && (
+                    <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
+                      {(() => {
+                        const start = new Date(selectedStartDate)
+                        const end = new Date(selectedEndDate)
+                        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
+                        return `${days} day${days > 1 ? 's' : ''}`
+                      })()}
+                    </div>
+                  )}
+                  
+                  {/* Action Buttons */}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => {
                         setShowDatePicker(false)
-                        setSelectedDate('')
+                        setSelectedStartDate('')
+                        setSelectedEndDate('')
                         setSelectedPeriod('today')
                       }}
                       className="flex-1 text-xs"
@@ -509,13 +550,14 @@ export default function Dashboard() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        if (selectedDate) {
+                        if (selectedStartDate && selectedEndDate) {
                           setShowDatePicker(false)
                         } else {
-                          toast.error('Please select a date')
+                          toast.error('Please select both start and end dates')
                         }
                       }}
                       className="flex-1 text-xs btn-primary-gradient"
+                      disabled={!selectedStartDate || !selectedEndDate}
                     >
                       Apply
                     </Button>
@@ -527,8 +569,8 @@ export default function Dashboard() {
           
           {/* Current Period Label */}
           <span className="ml-auto text-xs text-muted-foreground">
-            {selectedPeriod === 'single-date' && selectedDate
-              ? selectedDate
+            {selectedPeriod === 'custom-range' && selectedStartDate && selectedEndDate
+              ? `${selectedStartDate} → ${selectedEndDate}`
               : selectedPeriod === 'today' ? 'Today' :
                 selectedPeriod === 'yesterday' ? 'Yesterday' :
                 selectedPeriod === 'last7days' ? 'Last 7 Days' :
@@ -544,8 +586,8 @@ export default function Dashboard() {
         <div className="card hover-lift lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">
-              {selectedPeriod === 'single-date' && selectedDate
-                ? selectedDate
+              {selectedPeriod === 'custom-range' && selectedStartDate && selectedEndDate
+                ? `${selectedStartDate} → ${selectedEndDate}`
                 : selectedPeriod === 'today' ? 'Today' :
                   selectedPeriod === 'yesterday' ? 'Yesterday' :
                   selectedPeriod === 'last7days' ? 'Last 7 Days' :

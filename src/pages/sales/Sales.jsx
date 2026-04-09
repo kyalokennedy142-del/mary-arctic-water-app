@@ -161,6 +161,12 @@ export default function Sales() {
         const walkInCustomerId = await createWalkInCustomer()
         finalSaleData.customer_id = walkInCustomerId
         finalSaleData.customer_name = 'Walk-in Customer'
+      } else if (saleData.customer_id && !finalSaleData.customer_name) {
+        // ✅ Get customer name from customers list if not provided
+        const selectedCustomer = customers.find(c => c.id === saleData.customer_id)
+        if (selectedCustomer) {
+          finalSaleData.customer_name = selectedCustomer.name
+        }
       }
       
       if (editingSale) {

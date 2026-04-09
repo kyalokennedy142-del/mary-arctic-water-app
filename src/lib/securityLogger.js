@@ -28,54 +28,58 @@ export const SECURITY_EVENTS = {
   RATE_LIMITED: 'RATE_LIMITED'
 }
 
-// ✅ Main function: Log security event to database
+// ✅ Main function: Log security event to database (ASYNC, NON-BLOCKING)
 export const logSecurityEvent = async (eventType, details = {}) => {
-  try {
-    // Get current user (if any)
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    // Get IP address (optional, may fail in some environments)
-    const ipAddress = await getIPAddress()
-    
-    // Prepare event data
-    const eventData = {
-      user_id: user?.id || null,
-      user_email: user?.email || null,
-      event_type: eventType,
-      details: JSON.stringify({
-        ...details,
-        userAgent: navigator.userAgent,
-        path: window.location.pathname,
+  // ✅ Fire-and-forget: Don't block the user flow, just queue in background
+  setTimeout(async () => {
+    try {
+      // Get current user (if any)
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      // Get IP address (optional, may fail in some environments)
+      const ipAddress = await getIPAddress()
+      
+      // Prepare event data
+      const eventData = {
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        event_type: eventType,
+        details: JSON.stringify({
+          ...details,
+          userAgent: navigator.userAgent,
+          path: window.location.pathname,
+          timestamp: new Date().toISOString()
+        }),
+        ip_address: ipAddress,
+        user_agent: navigator.userAgent,
         timestamp: new Date().toISOString()
-      }),
-      ip_address: ipAddress,
-      user_agent: navigator.userAgent,
-      timestamp: new Date().toISOString()
+      }
+      
+      // Insert into security_events table (no await - fire-and-forget)
+      supabase
+        .from('security_events')
+        .insert(eventData)
+        .then(({ error }) => {
+          if (error) {
+            console.warn('⚠️ Failed to log security event:', error.message)
+          } else {
+            console.log(`🔐 Security Event (logged async): ${eventType}`, {
+              email: user?.email,
+              ...details
+            })
+          }
+        })
+        .catch(error => {
+          console.warn('⚠️ Security logging error:', error.message)
+        })
+    } catch (error) {
+      // ✅ Never throw - logging failures shouldn't crash the app
+      console.warn('⚠️ Security logging error:', error.message)
     }
-    
-    // Insert into security_events table
-    const { error } = await supabase
-      .from('security_events')
-      .insert(eventData)
-    
-    if (error) {
-      console.warn('⚠️ Failed to log security event:', error.message)
-      // Don't throw - logging shouldn't break the app
-      return false
-    }
-    
-    // Log to console for debugging (remove in production if desired)
-    console.log(`🔐 Security Event: ${eventType}`, {
-      email: user?.email,
-      ...details
-    })
-    
-    return true
-  } catch (error) {
-    // ✅ Never throw - logging failures shouldn't crash the app
-    console.warn('⚠️ Security logging error:', error.message)
-    return false
-  }
+  }, 0)
+  
+  // ✅ Return immediately - don't block the user
+  return true
 }
 
 // ✅ Helper: Get user IP address

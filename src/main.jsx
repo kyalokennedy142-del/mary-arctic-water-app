@@ -18,18 +18,16 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 // ✅ Debug Panel (visible in dev mode)
 import DebugPanel from '@/components/DebugPanel'
 
-// Pages - Existing
+// ✅ EAGER LOAD: All pages (fixes hanging on browser refresh)
+import Login from '@/pages/auth/Login'
+import Signup from '@/pages/auth/Signup'
+import ForgotPassword from '@/pages/auth/ForgotPassword'
+import ResetPassword from '@/pages/auth/ResetPassword'
 import Dashboard from '@/pages/Dashboard'
 import Customers from '@/pages/customers/Customers'
 import Stock from '@/pages/stock/Stock'
 import Sales from '@/pages/sales/Sales'
 import Reports from '@/pages/reports/Reports'
-
-// ✅ Pages - Auth
-import Login from '@/pages/auth/Login'
-import Signup from '@/pages/auth/Signup'
-import ForgotPassword from '@/pages/auth/ForgotPassword'
-import ResetPassword from '@/pages/auth/ResetPassword'
 
 // Create QueryClient for React Query
 const queryClient = new QueryClient({
@@ -57,37 +55,16 @@ createRoot(document.getElementById('root')).render(
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 
-                {/* ✅ Protected Routes */}
                 <Route path="/" element={
                   <ProtectedRoute>
                     <Navigate to="/dashboard" replace />
                   </ProtectedRoute>
                 } />
-                <Route path="/dashboard" element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/customers" element={
-                  <ProtectedRoute>
-                    <Customers />
-                  </ProtectedRoute>
-                } />
-                <Route path="/stock" element={
-                  <ProtectedRoute>
-                    <Stock />
-                  </ProtectedRoute>
-                } />
-                <Route path="/sales" element={
-                  <ProtectedRoute>
-                    <Sales />
-                  </ProtectedRoute>
-                } />
-                <Route path="/reports" element={
-                  <ProtectedRoute>
-                    <Reports />
-                  </ProtectedRoute>
-                } />
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+                <Route path="/stock" element={<ProtectedRoute><Stock /></ProtectedRoute>} />
+                <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+                <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                 
                 {/* ✅ 404 */}
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -301,6 +301,37 @@ export function DataProvider({ children }) {
   }, [safeFetch])
 
   // ============================================
+  // PARALLEL DATA LOADING - ✅ NEW: Fetch all data at once
+  // ============================================
+  
+  const loadAllData = useCallback(async () => {
+    setGlobalLoading(true)
+    startTiming('loadAllData')
+    addTimingEvent('loadAllData', 'parallel-fetch-start')
+    
+    try {
+      // ✅ Fetch all data in parallel, not sequentially
+      const [customersData, stockData, salesData] = await Promise.all([
+        getCustomers(),
+        getStock(),
+        getSales()
+      ])
+      
+      addTimingEvent('loadAllData', 'parallel-fetch-complete')
+      endTiming('loadAllData')
+      setGlobalLoading(false)
+      
+      return { customers: customersData, stock: stockData, sales: salesData }
+    } catch (error) {
+      debugSupabase(`❌ Error loading all data:`, error)
+      setGlobalError(error.message)
+      setGlobalLoading(false)
+      endTiming('loadAllData')
+      return { customers: [], stock: [], sales: [] }
+    }
+  }, [getCustomers, getStock, getSales])
+
+  // ============================================
   // CONTEXT VALUE
   // ============================================
 
@@ -325,7 +356,9 @@ export function DataProvider({ children }) {
     updateSale,
     archiveSale,
     restoreSale,
-    deleteSale
+    deleteSale,
+    // ✅ NEW: Parallel loading
+    loadAllData
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

@@ -28,6 +28,7 @@ export const useSanitize = () => {
   
   // Sanitize and validate email
   const sanitizeEmail = useCallback((email) => {
+    if (!email) return { value: '', isValid: true }
     const sanitized = sanitizeInput(email).toLowerCase()
     const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitized)
     return { value: sanitized, isValid }
@@ -36,6 +37,7 @@ export const useSanitize = () => {
   
   // Sanitize and validate phone (Kenya format)
   const sanitizePhone = useCallback((phone) => {
+    if (!phone) return { value: '', isValid: true }
     const sanitized = sanitizeInput(phone).replace(/\s/g, '')
     const isValid = /^(\+254|0)?[79]\d{8}$/.test(sanitized)
     return { value: sanitized, isValid }

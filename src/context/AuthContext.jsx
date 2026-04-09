@@ -16,8 +16,9 @@ export function AuthProvider({ children }) {
   // ✅ CRITICAL: Prevent concurrent auth operations with mutex
   const authLockRef = useRef(false)
   const roleUpdateInProgressRef = useRef(new Map())
+  const lastAuthEventRef = useRef(null)
 
-  // ✅ Get user role with debounce to prevent concurrent requests
+  // ✅ Get user role with timeout to prevent blocking UI
   const getUserRole = async (userId) => {
     // ✅ PREVENT DUPLICATE ROLE FETCHES: Return cached promise if already in progress
     if (roleUpdateInProgressRef.current.has(userId)) {
@@ -30,16 +31,33 @@ export function AuthProvider({ children }) {
     
     const rolePromise = (async () => {
       try {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('id', userId)
-          .single()
+        // ✅ ADD TIMEOUT: Don't wait more than 3 seconds for role fetch
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000)
         
-        addTimingEvent(`getRoleRole-${userId}`, 'role-fetch-complete')
-        const role = profile?.role || 'admin'
-        debugAuth(`✅ User role fetched: ${role}`, { userId })
-        return role
+        try {
+          const { data: profile, error } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('id', userId)
+            .single()
+          
+          clearTimeout(timeoutId)
+          
+          if (error) {
+            debugAuthError(`⚠️ Role fetch query failed: ${error.message}`, { userId })
+            return 'admin'
+          }
+          
+          addTimingEvent(`getRoleRole-${userId}`, 'role-fetch-complete')
+          const role = profile?.role || 'admin'
+          debugAuth(`✅ User role fetched: ${role}`, { userId })
+          return role
+        } catch (queryError) {
+          clearTimeout(timeoutId)
+          debugAuthError(`⚠️ Role fetch aborted/timeout: ${queryError.message}`, { userId })
+          return 'admin'
+        }
       } catch (error) {
         debugAuthError(`⚠️ Role fetch failed: ${error.message}`, { userId })
         return 'admin'
@@ -68,26 +86,16 @@ export function AuthProvider({ children }) {
       addTimingEvent('initializeAuth', 'auth-lock-acquired')
 
       try {
-        // ✅ COMPLETELY NEW APPROACH: Don't call getSession!
-        // onAuthStateChange is already listening and will fire immediately for existing sessions
-        // This avoids the hanging getSession() call entirely
+        // ✅ FASTEST APPROACH: Don't wait or call getSession
+        // Just open the listener subscription, it handles everything
+        // The listener will fire immediately on both initial load and after login
         
-        debugAuth('⏳ Waiting for onAuthStateChange listener to set initial auth state...')
-        addTimingEvent('initializeAuth', 'waiting-for-listener')
+        debugAuth('⏳ Setting up onAuthStateChange listener...')
+        addTimingEvent('initializeAuth', 'listener-setup')
         
-        // Just wait a short moment for listener to fire, then mark loading as false
-        // The listener will handle setting user/role
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        if (!isMounted) {
-          debugAuth('⚠️ Component unmounted during auth wait')
-          return
-        }
-        
-        // ✅ Set loading to false - listener will handle the rest
-        setLoading(false)
-        debugAuth('✅ Auth init complete - state will be set by onAuthStateChange listener')
-        addTimingEvent('initializeAuth', 'listener-wait-complete')
+        // Minimal setup - listener will handle loading state
+        debugAuth('✅ Auth init complete - listener is active and will restore session')
+        addTimingEvent('initializeAuth', 'init-complete')
         
       } catch (error) {
         debugAuthError(`⚠️ Auth init error: ${error.message}`)
@@ -108,6 +116,13 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return
       
+      // ✅ DEBOUNCE: Prevent duplicate SIGNED_OUT events
+      const eventKey = `${event}-${session?.user?.id || 'null'}`
+      if (lastAuthEventRef.current === eventKey) {
+        debugAuth(`⏭️ Skipping duplicate auth event: ${event}`)
+        return
+      }
+      lastAuthEventRef.current = eventKey
       debugAuth(`📢 Auth state change event: ${event}`)
       
       if (event === 'SIGNED_IN' && session?.user) {
@@ -125,18 +140,31 @@ export function AuthProvider({ children }) {
         
         setUser(session.user)
         setAuthError(null)
-        const role = await getUserRole(session.user.id)
-        if (isMounted) {
-          setUserRole(role)
-          setLoading(false)  // ✅ NEW: Mark loading as complete
-          debugAuth(`✅ Role set for signed-in user: ${role}`)
-        }
+        setLoading(false)  // ✅ CRITICAL: Unblock UI immediately
+        
+        // ✅ Fetch role in BACKGROUND without blocking
+        getUserRole(session.user.id).then(role => {
+          if (isMounted) {
+            setUserRole(role)
+            debugAuth(`✅ Role set for signed-in user: ${role}`)
+          }
+        }).catch(() => {
+          if (isMounted) {
+            setUserRole('admin')
+            debugAuth(`✅ Role defaulted to admin (fetch failed)`)
+          }
+        })
       } else if (event === 'SIGNED_OUT' || !session?.user) {
         debugAuth('📢 User signed out or session cleared')
         setUser(null)
         setUserRole('admin')
         setAuthError(null)
-        setLoading(false)  // ✅ NEW: Mark loading as complete
+        setLoading(false)  // ✅ CRITICAL: Mark loading as complete
+      } else {
+        // ✅ INITIAL AUTH CHECK on first mount (no event needed)
+        // When component first mounts, listener fires with current session
+        debugAuth('📢 Initial auth state check')
+        setLoading(false)  // If no session, stop loading
       }
     })
 

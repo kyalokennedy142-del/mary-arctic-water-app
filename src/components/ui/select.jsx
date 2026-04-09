@@ -223,7 +223,7 @@ function SelectItem({
       </span>
       
       {/* ✨ Item text with truncate support */}
-      <SelectPrimitive.ItemText className="flex-1 min-w-0 truncate">
+      <SelectPrimitive.ItemText key={`item-text-${props.value}`} className="flex-1 min-w-0 truncate">
         {children}
       </SelectPrimitive.ItemText>
       
