@@ -1,0 +1,27 @@
+{
+  "name": "AquaBiz - Mary Arctic Water",
+  "short_name": "AquaBiz",
+  "description": "Business management system for Mary Arctic Water",
+  "start_url": "/mary-arctic-water-app/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00a8ff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/mary-arctic-water-app/assets/react.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/mary-arctic-water-app/assets/hero.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "en-US",
+  "prefer_related_applications": false
+}
