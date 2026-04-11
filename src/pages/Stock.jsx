@@ -33,6 +33,7 @@ export default function Stock() {
   const [addingNew, setAddingNew] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [archiveConfirm, setArchiveConfirm] = useState(null)
+  // eslint-disable-next-line no-unused-vars
   const [showArchived, setShowArchived] = useState(false)
   const [showOverview, setShowOverview] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)

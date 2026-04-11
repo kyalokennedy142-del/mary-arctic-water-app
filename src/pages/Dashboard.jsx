@@ -12,11 +12,14 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ChevronRight,
-  Calendar
+  Calendar,
+  Download,  // ✅ Install icon
+  Bell        // ✅ Notification icon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useData } from '@/context/DataContext'
+// eslint-disable-next-line no-unused-vars
 import { debugSupabase, startTiming, endTiming, addTimingEvent } from '@/lib/debug'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
@@ -42,13 +45,10 @@ const getDateRange = (period, customStartDate = null, customEndDate = null) => {
   const today = new Date()
   const todayStr = getLocalDateStr(today)
   
-  // ✅ If custom date range provided, return that range
   if (period === 'custom-range' && customStartDate && customEndDate) {
-    // Ensure start date is not after end date
     if (customStartDate <= customEndDate) {
       return { start: customStartDate, end: customEndDate }
     }
-    // If start is after end, swap them
     return { start: customEndDate, end: customStartDate }
   }
   
@@ -210,30 +210,27 @@ export default function Dashboard() {
     sales: []
   })
   
-  // ✅ UPDATED: Period selection state with custom date range support
   const [selectedPeriod, setSelectedPeriod] = useState('today')
-  const [selectedStartDate, setSelectedStartDate] = useState('') // ✅ Start date for date range picker
-  const [selectedEndDate, setSelectedEndDate] = useState('') // ✅ End date for date range picker
+  const [selectedStartDate, setSelectedStartDate] = useState('')
+  const [selectedEndDate, setSelectedEndDate] = useState('')
   const [showDatePicker, setShowDatePicker] = useState(false)
+
+  // ✅ PWA: Install prompt state
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
 
   const { getCustomers, getStock, getSales } = useData()
 
-  // ✅ Load all dashboard data
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true)
-      debugSupabase('📊 Dashboard: Starting data load (getCustomers, getStock, getSales)')
+      debugSupabase('📊 Dashboard: Starting data load')
       startTiming('dashboard-load')
       
-      addTimingEvent('dashboard-load', 'promise-all-start')
       const [customers, stock, sales] = await Promise.all([
         getCustomers(),
         getStock(),
         getSales()
       ])
-      addTimingEvent('dashboard-load', 'promise-all-complete')
-      
-      debugSupabase(`✅ Dashboard data loaded: ${customers?.length || 0} customers, ${stock?.length || 0} stock items, ${sales?.length || 0} sales`)
       
       setData({
         customers: customers || [],
@@ -242,7 +239,6 @@ export default function Dashboard() {
       })
       endTiming('dashboard-load')
     } catch (error) {
-      debugSupabase(`❌ Dashboard load error: ${error.message}`)
       console.error('Dashboard load error:', error)
       toast.error('Failed to load dashboard data')
       endTiming('dashboard-load')
@@ -251,27 +247,114 @@ export default function Dashboard() {
     }
   }, [getCustomers, getStock, getSales])
 
-  // Load on mount
   useEffect(() => {
     loadDashboardData()
   }, [loadDashboardData])
 
-  // Manual refresh
+  // ✅ PWA: Listen for install prompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault()
+      setDeferredPrompt(event)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    }
+  }, [])
+
   const handleRefresh = async () => {
     await loadDashboardData()
     toast.success('Dashboard updated!')
   }
 
-  // ✅ Filter to only active customers
+  // ✅ PWA: Handle install click (ALWAYS VISIBLE BUTTON)
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      // ✅ App is installable - show native prompt
+      deferredPrompt.prompt()
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          toast.success('App installed successfully! 🎉')
+        } else {
+          toast.info('Install cancelled')
+        }
+        setDeferredPrompt(null)
+      })
+    } else {
+      // ✅ App not installable - show helpful message
+      toast.info('📱 To install: Use Chrome on Android, or tap Share → "Add to Home Screen" on iOS')
+    }
+  }
+
+  // ✅ Push notifications
+  const handlePushNotification = async () => {
+    try {
+      if (!('PushManager' in window)) {
+        toast.info('Push notifications not supported in this browser')
+        return
+      }
+
+      if (!navigator.serviceWorker?.controller) {
+        toast.error('Service worker not ready. Please refresh the page.')
+        return
+      }
+
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        toast.info('Notification permission denied')
+        return
+      }
+
+      // ✅ YOUR REAL VAPID PUBLIC KEY (replace with actual key from https://web-push-codelab.glitch.me/)
+      const VAPID_PUBLIC_KEY = 'YOUR_REAL_VAPID_PUBLIC_KEY_HERE'
+      
+      if (!VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY === 'YOUR_REAL_VAPID_PUBLIC_KEY_HERE') {
+        toast.info('🔑 Configure VAPID key in Dashboard.jsx to enable push notifications')
+        console.log('Get a VAPID key at: https://web-push-codelab.glitch.me/')
+        return
+      }
+
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      })
+
+      console.log('Push subscription:', JSON.stringify(subscription, null, 2))
+      toast.success('✅ Notifications enabled!')
+      
+    } catch (error) {
+      console.error('Push notification error:', error)
+      toast.error('Failed to enable notifications: ' + error.message)
+    }
+  }
+
+  // ✅ Helper: Convert VAPID key to Uint8Array
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+    
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i)
+    }
+    return outputArray
+  }
+
   const activeCustomers = data.customers.filter(c => !c.is_archived)
   const activeCustomerIds = new Set(activeCustomers.map(c => c.id))
 
-  // ✅ UPDATED: Get current date range (supports custom range)
   const currentDateRange = useMemo(() => {
     return getDateRange(selectedPeriod, selectedStartDate, selectedEndDate)
   }, [selectedPeriod, selectedStartDate, selectedEndDate])
 
-  // ✅ Filter sales by date range (timezone-safe)
   const filteredSales = useMemo(() => {
     if (!currentDateRange) return []
     return data.sales.filter(sale => {
@@ -284,11 +367,9 @@ export default function Dashboard() {
     })
   }, [data.sales, currentDateRange, activeCustomerIds])
 
-  // ✅ Calculate metrics for selected period
   const periodRevenue = filteredSales.reduce((sum, s) => sum + (s.total || 0), 0)
   const periodTransactions = filteredSales.length
 
-  // ✅ Calculate comparison metrics (previous period)
   const getPreviousPeriodRange = () => {
     if (!currentDateRange) return null
     const { start, end } = currentDateRange
@@ -323,7 +404,6 @@ export default function Dashboard() {
     ? ((periodRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100 
     : 0
 
-  // ✅ Today's sales (for quick reference card)
   const todayStr = getLocalDateStr(new Date())
   const todaysSales = data.sales.filter(sale => {
     const saleDateStr = getLocalDateStr(sale.date)
@@ -331,7 +411,6 @@ export default function Dashboard() {
   })
   const todaysRevenue = todaysSales.reduce((sum, s) => sum + (s.total || 0), 0)
 
-  // ✅ This week's sales (for quick reference card)
   const today = new Date()
   const startOfWeek = new Date(today)
   startOfWeek.setDate(today.getDate() - today.getDay())
@@ -347,7 +426,6 @@ export default function Dashboard() {
   const criticalStock = data.stock.filter(item => item.quantity <= 5)
   const healthyStock = data.stock.filter(item => item.quantity > 10).length
 
-  // Customer segmentation
   const getCustomerStatus = (customer) => {
     if (customer.is_archived) return 'archived'
     
@@ -378,19 +456,17 @@ export default function Dashboard() {
     dormant: activeCustomers.filter(c => getCustomerStatus(c) === 'dormant').length
   }
 
-  // Stock status counts
   const stockStatus = {
     healthy: healthyStock,
     low: data.stock.filter(item => item.quantity > 5 && item.quantity <= 10).length,
     critical: criticalStock.length
   }
 
-  // ✅ Period button component
   const PeriodButton = ({ period, label }) => (
     <button
       onClick={() => {
         setSelectedPeriod(period)
-        setSelectedStartDate('') // Clear dates when switching periods
+        setSelectedStartDate('')
         setSelectedEndDate('')
         setShowDatePicker(false)
       }}
@@ -404,7 +480,6 @@ export default function Dashboard() {
     </button>
   )
 
-  // Loading State
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -453,19 +528,18 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* ✅ UPDATED: Period Selector with Custom Date Range Picker */}
+      {/* Period Selector */}
       <div className="card p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground mr-2">View:</span>
           
-          {/* Predefined Period Buttons */}
           <PeriodButton period="today" label="Today" />
           <PeriodButton period="yesterday" label="Yesterday" />
           <PeriodButton period="last7days" label="Last 7 Days" />
           <PeriodButton period="last30days" label="Last 30 Days" />
           <PeriodButton period="lastmonth" label="Last Month" />
           
-          {/* ✅ Custom Date Range Picker */}
+          {/* Custom Date Range Picker */}
           <div className="relative">
             <button
               onClick={() => {
@@ -486,13 +560,11 @@ export default function Dashboard() {
                 : 'Date Range'}
             </button>
             
-            {/* Date Range Picker Dropdown */}
             {showDatePicker && (
               <div className="absolute top-full right-0 mt-2 p-4 bg-card border border-border/30 rounded-xl shadow-lg z-10 min-w-80">
                 <div className="space-y-4">
                   <h3 className="font-medium text-sm text-foreground">Select Date Range</h3>
                   
-                  {/* Start Date */}
                   <div>
                     <Label className="text-xs text-muted-foreground">Start Date</Label>
                     <input
@@ -506,7 +578,6 @@ export default function Dashboard() {
                     />
                   </div>
                   
-                  {/* End Date */}
                   <div>
                     <Label className="text-xs text-muted-foreground">End Date</Label>
                     <input
@@ -520,7 +591,6 @@ export default function Dashboard() {
                     />
                   </div>
                   
-                  {/* Info */}
                   {selectedStartDate && selectedEndDate && (
                     <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
                       {(() => {
@@ -532,7 +602,6 @@ export default function Dashboard() {
                     </div>
                   )}
                   
-                  {/* Action Buttons */}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -567,7 +636,6 @@ export default function Dashboard() {
             )}
           </div>
           
-          {/* Current Period Label */}
           <span className="ml-auto text-xs text-muted-foreground">
             {selectedPeriod === 'custom-range' && selectedStartDate && selectedEndDate
               ? `${selectedStartDate} → ${selectedEndDate}`
@@ -580,9 +648,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ✅ SECTION 1: Key Metrics - Selected Period + Quick Reference */}
+      {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
-        {/* ✅ Selected Period Revenue (Main Metric) */}
+        {/* Selected Period Revenue */}
         <div className="card hover-lift lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">
@@ -609,7 +677,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Today's Sales (Quick Reference) */}
+        {/* Today's Sales */}
         <div className="card hover-lift">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">Today</span>
@@ -621,7 +689,7 @@ export default function Dashboard() {
           <div className="text-xs text-muted-foreground mt-1">{todaysSales.length} transactions</div>
         </div>
 
-        {/* This Week's Sales (Quick Reference) */}
+        {/* This Week's Sales */}
         <div className="card hover-lift">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">This Week</span>
@@ -633,7 +701,7 @@ export default function Dashboard() {
           <div className="text-xs text-muted-foreground mt-1">{weeklySales.length} transactions</div>
         </div>
 
-        {/* Low Stock (Quick Reference) */}
+        {/* Low Stock */}
         <div className="card hover-lift cursor-pointer" onClick={() => navigate('/stock')}>
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">Low Stock</span>
@@ -646,7 +714,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* SECTION 2: Low Stock Alerts (Grouped by Category) */}
+      {/* Low Stock Alerts */}
       {criticalStock.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
@@ -739,7 +807,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* SECTION 3: Customer Segments */}
+      {/* Customer Segments */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -779,7 +847,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* SECTION 4: Daily Growth Chart */}
+      {/* Daily Growth Chart */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -816,7 +884,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* SECTION 5: Stock Summary */}
+      {/* Stock Summary */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -849,6 +917,27 @@ export default function Dashboard() {
         <p className="text-sm text-muted-foreground mt-4 text-center">
           View and manage full inventory in the Stock page
         </p>
+      </div>
+      
+      {/* ✅ PWA Install & Notification Buttons - ALWAYS VISIBLE */}
+      <div className="flex flex-wrap gap-3 pt-4">
+        {/* ✅ Install Button - ALWAYS SHOWS (removed isInstallable condition) */}
+        <Button 
+          onClick={handleInstallClick} 
+          className="flex items-center gap-2 border-primary/30 hover:bg-primary/10"
+        >
+          <Download className="w-4 h-4" />
+          Install App
+        </Button>
+        
+        <Button 
+          onClick={handlePushNotification} 
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <Bell className="w-4 h-4" />
+          Enable Notifications
+        </Button>
       </div>
     </div>
   )

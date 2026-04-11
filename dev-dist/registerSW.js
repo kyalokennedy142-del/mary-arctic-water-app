@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/mary-arctic-water-app/dev-sw.js?dev-sw', { scope: '/mary-arctic-water-app/', type: 'classic' })

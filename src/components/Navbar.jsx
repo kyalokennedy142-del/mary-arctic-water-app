@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 "use client"
 
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -12,9 +11,10 @@ import {
   X,
   LogIn,
   LogOut,
-  User
+  User,
+  Download  // ✅ ADD: Install icon
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -25,9 +25,56 @@ export default function Navbar() {
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
+  // ✅ PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [isInstallable, setIsInstallable] = useState(false)
+  
   // ✅ FIX: Use AuthContext instead of duplicate getSession call
   const { user, loading } = useAuth()
   
+  // ✅ PWA: Listen for install prompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event) => {
+      console.log('beforeinstallprompt event fired'); // Debugging log
+      event.preventDefault()
+      setDeferredPrompt(event)
+      setIsInstallable(true)
+    }
+
+    const handleAppInstalled = () => {
+      console.log('App installed successfully'); // Debugging log
+      setIsInstallable(false)
+      setDeferredPrompt(null)
+      toast.success('AquaBiz installed! 🎉')
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
+  }, [])
+
+  // ✅ PWA: Handle install click
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          toast.success('App installed successfully!')
+        } else {
+          toast.info('Install cancelled')
+        }
+        setDeferredPrompt(null)
+        setIsInstallable(false)
+      })
+    } else {
+      toast.info('Install not available on this device')
+    }
+  }
+
   const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/customers', label: 'Customers', icon: Users },
@@ -39,21 +86,14 @@ export default function Navbar() {
   // ✅ Handle logout
   const handleLogout = async () => {
     try {
-      // 1. Tell Supabase to sign out globally
-      await supabase.auth.signOut();
-      
-      // 2. Clear everything from the browser storage
-      localStorage.clear();
-      sessionStorage.clear();
-
-      // 3. Force a hard redirect to the login page
-      // This resets the app state completely
-      window.location.href = '/login'; 
+      await supabase.auth.signOut()
+      localStorage.clear()
+      sessionStorage.clear()
+      window.location.href = '/login'
     } catch (error) {
-      console.error("Error logging out:", error);
-      // Even if Supabase fails, clear the local data anyway
-      localStorage.clear();
-      window.location.reload();
+      console.error("Error logging out:", error)
+      localStorage.clear()
+      window.location.reload()
     }
   }
 
@@ -115,7 +155,7 @@ export default function Navbar() {
               })}
             </div>
 
-            {/* ✅ Auth Buttons - Desktop (Only shown when not loading) */}
+            {/* ✅ Auth Buttons + Install Button - Desktop */}
             {!loading && (
               <div className="hidden md:flex items-center gap-2">
                 {user ? (
@@ -160,6 +200,20 @@ export default function Navbar() {
                       Sign Up
                     </Button>
                   </>
+                )}
+                
+                {/* ✅ PWA Install Button - Desktop (shows when installable) */}
+                {isInstallable && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleInstallClick}
+                    className="flex items-center gap-2 border-primary/30 hover:bg-primary/10"
+                    title="Install AquaBiz"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden lg:inline">Install</span>
+                  </Button>
                 )}
               </div>
             )}
@@ -215,9 +269,9 @@ export default function Navbar() {
                 )
               })}
               
-              {/* ✅ Auth Buttons - Mobile */}
+              {/* ✅ Auth + Install Buttons - Mobile */}
               {!loading && (
-                <div className="pt-3 mt-3 border-t border-border/20">
+                <div className="pt-3 mt-3 border-t border-border/20 space-y-2">
                   {user ? (
                     // ✅ Logged in: Show user + logout
                     <>
@@ -237,7 +291,7 @@ export default function Navbar() {
                       <Button
                         variant="ghost"
                         onClick={() => { handleLogout(); setMobileMenuOpen(false) }}
-                        className="w-full justify-start text-destructive hover:bg-destructive/10 rounded-xl mt-2"
+                        className="w-full justify-start text-destructive hover:bg-destructive/10 rounded-xl"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
                         Logout
@@ -257,11 +311,23 @@ export default function Navbar() {
                       <Button
                         variant="default"
                         onClick={() => { navigate('/signup'); setMobileMenuOpen(false) }}
-                        className="w-full btn-primary-gradient rounded-xl mt-2"
+                        className="w-full btn-primary-gradient rounded-xl"
                       >
                         Sign Up
                       </Button>
                     </>
+                  )}
+                  
+                  {/* ✅ PWA Install Button - Mobile (shows when installable) */}
+                  {isInstallable && (
+                    <Button
+                      variant="outline"
+                      onClick={() => { handleInstallClick(); setMobileMenuOpen(false) }}
+                      className="w-full justify-start border-primary/30 hover:bg-primary/10"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Install App
+                    </Button>
                   )}
                 </div>
               )}

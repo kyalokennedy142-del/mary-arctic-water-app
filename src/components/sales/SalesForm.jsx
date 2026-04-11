@@ -98,7 +98,9 @@ export default function SalesForm({
   // Validate
   const validateForm = useCallback(() => {
     const newErrors = {}
-    if (!form.customer_id) newErrors.customer_id = 'Please select a customer'
+    if (!form.customer_id || !customers.find(c => c.id === form.customer_id)) {
+      newErrors.customer_id = 'Please select a valid customer'
+    }
     if (!form.product_id) newErrors.product_id = 'Please select a product'
     if (!form.quantity || parseInt(form.quantity) < 1) {
       newErrors.quantity = 'Quantity must be at least 1'
@@ -109,6 +111,7 @@ export default function SalesForm({
     if (!form.date) newErrors.date = 'Please select a date'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, selectedStock])
 
   // ✅ Submit with product_name always included
@@ -126,7 +129,7 @@ export default function SalesForm({
       
       const saleData = {
         customer_id: form.customer_id,
-        customer_name: customer?.name || 'Unknown',
+        customer_name: customer?.name || 'Walk-in Customer',
         product_id: form.product_id,
         // ✅ ALWAYS include product_name from selected product
         product_name: product?.product_name || 'Unknown Product',
