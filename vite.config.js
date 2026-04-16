@@ -6,7 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig({
-  base: '/mary-arctic-water-app/', // ✅ Must match GitHub repo name
+  base: '/', // ✅ Must match GitHub repo name
   
   plugins: [
     react(),
