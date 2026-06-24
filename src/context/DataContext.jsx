@@ -2,11 +2,10 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { debugRLS, debugRLSError, debugSupabase, startTiming, endTiming, addTimingEvent } from '@/lib/debug'
-import { toast } from 'sonner'
+import { toast } from 'sonner'   
 
 const DataContext = createContext(null)
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useData = () => {
   const context = useContext(DataContext)
   if (!context) throw new Error('useData must be used within DataProvider')
@@ -17,7 +16,6 @@ export function DataProvider({ children }) {
   const [globalLoading, setGlobalLoading] = useState(false)
   const [globalError, setGlobalError] = useState(null)
 
-  // ✅ HELPER: Safe fetch with RLS error handling
   const safeFetch = useCallback(async (query, errorMessage = 'Operation failed') => {
     const queryKey = `safeFetch-${Math.random().toString(36).substring(7)}`
     startTiming(queryKey)
@@ -51,7 +49,6 @@ export function DataProvider({ children }) {
     }
   }, [])
 
-  // ✅ HELPER: Sanitize data for database (prevent XSS)
   const sanitizeForDatabase = (data) => {
     const sanitized = {}
     for (const [key, value] of Object.entries(data)) {
@@ -208,14 +205,13 @@ export function DataProvider({ children }) {
   }, [safeFetch])
 
   // ============================================
-  // SALES - ✅ FIXED: Include product_name in select
+  // SALES
   // ============================================
 
   const getSales = useCallback(async (includeArchived = false) => {
     let query = supabase
       .from('sales')
-      // ✅ FIXED: Added product_name, customer_name and notes to select
-      .select('id, customer_id, customer_name, product_id, product_name, quantity_sold, price, total, date, is_archived, notes')
+      .select('id, customer_id, customer_name, product_id, product_name, quantity_sold, price, total, date, is_archived, notes, recorded_by')
       .order('date', { ascending: false })
       .limit(100)
     
@@ -226,27 +222,28 @@ export function DataProvider({ children }) {
   }, [safeFetch])
 
   const createSale = useCallback(async (saleData) => {
-    // Check archived customer
-    const { data: customer } = await supabase.from('customers').select('is_archived').eq('id', saleData.customer_id).single()
-    if (customer?.is_archived) throw new Error('Cannot record sale for archived customer')
+    // 🔒 FIX: If it's a walk-in customer, we might need to handle the ID, 
+    // but assuming Sales.jsx handles the walk-in ID creation, we just save the data here.
     
-    // ✅ FIXED: Ensure product_name is included in insert and select
     const { data: sale, error: saleError } = await safeFetch(
       supabase.from('sales').insert([{ 
         customer_id: saleData.customer_id,
+        // 🔒 THE MISSING LINK: We must explicitly save the customer_name to the database!
+        customer_name: saleData.customer_name || 'Unknown Customer', 
         product_id: saleData.product_id,
-        product_name: saleData.product_name || 'Unknown Product', // ✅ Save product_name
+        product_name: saleData.product_name || 'Unknown Product',
         quantity_sold: parseInt(saleData.quantity_sold),
         price: parseFloat(saleData.price),
         total: parseFloat(saleData.total),
         date: saleData.date || new Date().toISOString(),
-        notes: saleData.notes || null
-      }]).select('id, product_name, total, date, notes').single(), // ✅ Select product_name
+        notes: saleData.notes || null,
+        recorded_by: saleData.recorded_by 
+      }]).select('id, customer_name, product_name, total, date, notes').single(),
       'Failed to record sale'
     )
     if (saleError) throw saleError
     
-    // Reduce stock
+    // Reduce stock after successful sale
     await reduceStock(saleData.product_id, parseInt(saleData.quantity_sold))
     
     toast.success('Sale recorded!')
@@ -258,7 +255,9 @@ export function DataProvider({ children }) {
     const { data, error } = await safeFetch(
       supabase.from('sales').update({
         ...saleData,
-        product_name: saleData.product_name, // ✅ Keep product_name on update
+        // 🔒 FIX: Ensure customer_name is updated if the owner edits the sale
+        customer_name: saleData.customer_name, 
+        product_name: saleData.product_name,
         quantity_sold: saleData.quantity_sold !== undefined ? parseInt(saleData.quantity_sold) : undefined,
         price: saleData.price !== undefined ? parseFloat(saleData.price) : undefined,
         total: saleData.total !== undefined ? parseFloat(saleData.total) : undefined,
@@ -301,7 +300,28 @@ export function DataProvider({ children }) {
   }, [safeFetch])
 
   // ============================================
-  // PARALLEL DATA LOADING - ✅ NEW: Fetch all data at once
+  // 🔔 REAL-TIME SALES SUBSCRIPTION
+  // ============================================
+  const subscribeToSales = useCallback((onChange) => {
+    const channel = supabase
+      .channel('realtime-sales')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sales' },
+        (payload) => {
+          debugSupabase('🔔 Real-time sales event:', payload.eventType)
+          onChange(payload)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  // ============================================
+  // PARALLEL DATA LOADING
   // ============================================
   
   const loadAllData = useCallback(async () => {
@@ -310,7 +330,6 @@ export function DataProvider({ children }) {
     addTimingEvent('loadAllData', 'parallel-fetch-start')
     
     try {
-      // ✅ Fetch all data in parallel, not sequentially
       const [customersData, stockData, salesData] = await Promise.all([
         getCustomers(),
         getStock(),
@@ -331,34 +350,14 @@ export function DataProvider({ children }) {
     }
   }, [getCustomers, getStock, getSales])
 
-  // ============================================
-  // CONTEXT VALUE
-  // ============================================
-
   const value = {
     loading: globalLoading,
     error: globalError,
-    // Customers
-    getCustomers,
-    createCustomer,
-    updateCustomer,
-    archiveCustomer,
-    restoreCustomer,
-    deleteCustomer,
-    // Stock
-    getStock,
-    createStock,
-    updateStock,
-    reduceStock,
-    // Sales
-    getSales,
-    createSale,
-    updateSale,
-    archiveSale,
-    restoreSale,
-    deleteSale,
-    // ✅ NEW: Parallel loading
-    loadAllData
+    getCustomers, createCustomer, updateCustomer, archiveCustomer, restoreCustomer, deleteCustomer,
+    getStock, createStock, updateStock, reduceStock,
+    getSales, createSale, updateSale, archiveSale, restoreSale, deleteSale,
+    loadAllData,
+    subscribeToSales 
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

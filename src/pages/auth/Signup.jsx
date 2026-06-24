@@ -14,6 +14,9 @@ import { checkRateLimit, clearLoginAttempts } from '@/lib/rateLimiter'
 import { logSecurityEvent, SECURITY_EVENTS } from '@/lib/securityLogger'
 import { sanitizeInput, validateEmail, validatePassword } from '@/lib/sanitize'
 
+// 🔒 CORE ROLE LOGIC: These emails are the Owners. Everyone else is an Attendant.
+const OWNER_EMAILS = ['nyamburamary89@gmail.com', 'kyalokennedy142@gmail.com']
+
 export function Signup() {
   const navigate = useNavigate()
   
@@ -72,11 +75,7 @@ export function Signup() {
       newErrors.email = 'Please enter a valid email address'
     }
     
-    // ✅ Email whitelist check (only Mary & Kennedy can signup)
-    const allowedEmails = ['nyamburamary89@gmail.com', 'kyalokennedy142@gmail.com']
-    if (!allowedEmails.includes(form.email.trim().toLowerCase())) {
-      newErrors.email = 'Signup is restricted to authorized users only'
-    }
+    // 🔒 REMOVED THE STRICT WHITELIST! Now anyone can sign up as an attendant.
     
     // Password validation
     const passwordCheck = validatePassword(form.password)
@@ -124,6 +123,9 @@ export function Signup() {
         password: form.password
       }
 
+      // 🔒 DETERMINE ROLE BASED ON EMAIL
+      const assignedRole = OWNER_EMAILS.includes(sanitizedData.email) ? 'owner' : 'attendant'
+
       // ✅ STEP 4: Create account
       const { data, error } = await supabase.auth.signUp({
         email: sanitizedData.email,
@@ -131,7 +133,7 @@ export function Signup() {
         options: {
           data: {
             full_name: sanitizedData.name,
-            role: 'admin' // Both users are admins
+            role: assignedRole // 🔒 Assign correct role dynamically
           }
         }
       })
@@ -153,14 +155,29 @@ export function Signup() {
         return
       }
 
-      // ✅ STEP 5: Log successful signup
+      // 🔒 STEP 5: Create user profile in database with assigned role
+      if (data.user) {
+        const { error: profileError } = await supabase.from('user_profiles').insert({
+          id: data.user.id,
+          email: sanitizedData.email,
+          full_name: sanitizedData.name,
+          role: assignedRole
+        })
+        if (profileError) {
+          console.error('Profile creation error:', profileError)
+          // Don't block signup, AuthContext will fallback to email check
+        }
+      }
+
+      // ✅ STEP 6: Log successful signup
       await logSecurityEvent(SECURITY_EVENTS.NEW_USER, {
         email: sanitizedData.email,
         name: sanitizedData.name,
-        userId: data?.user?.id
+        userId: data?.user?.id,
+        role: assignedRole
       })
 
-      // ✅ STEP 6: Clear rate limit
+      // ✅ STEP 7: Clear rate limit
       clearLoginAttempts(`signup:${sanitizedData.email}`)
 
       toast.success('Account created! Please check your email to verify.')
@@ -195,7 +212,7 @@ export function Signup() {
           <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
             Create Account
           </h1>
-          <p className="text-blue-800/70">Join AquaBiz — Authorized users only</p>
+          <p className="text-blue-800/70">Join AquaBiz — Owners & Attendants welcome</p>
         </div>
 
         {/* Signup Card */}
@@ -243,7 +260,7 @@ export function Signup() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="nyamburamary89@gmail.com"
+                  placeholder="attendant@example.com"
                   value={form.email}
                   onChange={(e) => {
                     setForm({ ...form, email: e.target.value })
@@ -262,9 +279,9 @@ export function Signup() {
                   {errors.email}
                 </p>
               )}
-              {/* Email whitelist notice */}
+              {/* Role assignment notice */}
               <p className="text-xs text-blue-700/70">
-                ℹ️ Signup is restricted to authorized users only
+                ℹ️ Owner emails get full access. All other emails automatically become Attendants.
               </p>
             </div>
 

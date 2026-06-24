@@ -12,7 +12,7 @@ import {
   LogIn,
   LogOut,
   User,
-  Download  // ✅ ADD: Install icon
+  Download  
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
@@ -29,20 +29,20 @@ export default function Navbar() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [isInstallable, setIsInstallable] = useState(false)
   
-  // ✅ FIX: Use AuthContext instead of duplicate getSession call
-  const { user, loading } = useAuth()
+  // ✅ FIX: Use AuthContext and get userRole to control navigation
+  const { user, userRole, loading } = useAuth()
   
   // ✅ PWA: Listen for install prompt
   useEffect(() => {
     const handleBeforeInstallPrompt = (event) => {
-      console.log('beforeinstallprompt event fired'); // Debugging log
+      console.log('beforeinstallprompt event fired'); 
       event.preventDefault()
       setDeferredPrompt(event)
       setIsInstallable(true)
     }
 
     const handleAppInstalled = () => {
-      console.log('App installed successfully'); // Debugging log
+      console.log('App installed successfully'); 
       setIsInstallable(false)
       setDeferredPrompt(null)
       toast.success('AquaBiz installed! 🎉')
@@ -75,13 +75,24 @@ export default function Navbar() {
     }
   }
 
-  const navItems = [
+  // ✅ ALL POSSIBLE NAVIGATION ITEMS
+  const allNavItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/customers', label: 'Customers', icon: Users },
     { path: '/stock', label: 'Stock', icon: Package },
     { path: '/sales', label: 'Sales', icon: ShoppingCart },
     { path: '/reports', label: 'Reports', icon: FileText },
   ]
+
+  // 🔒 ROLE-BASED NAVIGATION: Filter items based on user role
+  const navItems = allNavItems.filter(item => {
+    if (userRole === 'attendant') {
+      // Attendants ONLY see the Sales page
+      return item.path === '/sales'
+    }
+    // Owners and admins see everything
+    return true 
+  })
 
   // ✅ Handle logout
   const handleLogout = async () => {

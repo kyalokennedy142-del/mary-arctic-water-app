@@ -7,20 +7,21 @@ import { toast } from 'sonner'
 
 const AuthContext = createContext(null)
 
+// 🔒 CORE ROLE LOGIC: These emails are the Owners. Everyone else is an Attendant.
+const OWNER_EMAILS = ['nyamburamary89@gmail.com', 'kyalokennedy142@gmail.com']
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [userRole, setUserRole] = useState('admin')
+  const [userRole, setUserRole] = useState('attendant') 
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState(null)
   
-  // ✅ CRITICAL: Prevent concurrent auth operations with mutex
   const authLockRef = useRef(false)
   const roleUpdateInProgressRef = useRef(new Map())
   const lastAuthEventRef = useRef(null)
 
-  // ✅ Get user role with timeout to prevent blocking UI
-  const getUserRole = async (userId) => {
-    // ✅ PREVENT DUPLICATE ROLE FETCHES: Return cached promise if already in progress
+  // ✅ Get user role. Now accepts userEmail as a fallback!
+  const getUserRole = async (userId, userEmail) => {
     if (roleUpdateInProgressRef.current.has(userId)) {
       debugLock('🔒 Role fetch already in progress, returning cached promise', { userId })
       return roleUpdateInProgressRef.current.get(userId)
@@ -31,7 +32,6 @@ export function AuthProvider({ children }) {
     
     const rolePromise = (async () => {
       try {
-        // ✅ ADD TIMEOUT: Don't wait more than 3 seconds for role fetch
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 3000)
         
@@ -46,21 +46,23 @@ export function AuthProvider({ children }) {
           
           if (error) {
             debugAuthError(`⚠️ Role fetch query failed: ${error.message}`, { userId })
-            return 'admin'
+            // 🔒 FALLBACK: If DB fails, determine role by email
+            return OWNER_EMAILS.includes(userEmail) ? 'owner' : 'attendant'
           }
           
           addTimingEvent(`getRoleRole-${userId}`, 'role-fetch-complete')
-          const role = profile?.role || 'admin'
+          // 🔒 FALLBACK: If profile exists but role is missing, determine by email
+          const role = profile?.role || (OWNER_EMAILS.includes(userEmail) ? 'owner' : 'attendant')
           debugAuth(`✅ User role fetched: ${role}`, { userId })
           return role
         } catch (queryError) {
           clearTimeout(timeoutId)
           debugAuthError(`⚠️ Role fetch aborted/timeout: ${queryError.message}`, { userId })
-          return 'admin'
+          return OWNER_EMAILS.includes(userEmail) ? 'owner' : 'attendant'
         }
       } catch (error) {
         debugAuthError(`⚠️ Role fetch failed: ${error.message}`, { userId })
-        return 'admin'
+        return OWNER_EMAILS.includes(userEmail) ? 'owner' : 'attendant'
       } finally {
         roleUpdateInProgressRef.current.delete(userId)
         endTiming(`getRoleRole-${userId}`)
@@ -75,7 +77,6 @@ export function AuthProvider({ children }) {
     let isMounted = true
 
     const initializeAuth = async () => {
-      // ✅ CRITICAL: Use mutex to prevent concurrent auth operations
       if (authLockRef.current) {
         debugLock('🔒 Auth already initializing, skipping duplicate', { lockActive: true })
         return
@@ -86,22 +87,13 @@ export function AuthProvider({ children }) {
       addTimingEvent('initializeAuth', 'auth-lock-acquired')
 
       try {
-        // ✅ FASTEST APPROACH: Don't wait or call getSession
-        // Just open the listener subscription, it handles everything
-        // The listener will fire immediately on both initial load and after login
-        
         debugAuth('⏳ Setting up onAuthStateChange listener...')
         addTimingEvent('initializeAuth', 'listener-setup')
-        
-        // Minimal setup - listener will handle loading state
         debugAuth('✅ Auth init complete - listener is active and will restore session')
         addTimingEvent('initializeAuth', 'init-complete')
-        
       } catch (error) {
         debugAuthError(`⚠️ Auth init error: ${error.message}`)
-        if (isMounted) {
-          setLoading(false)
-        }
+        if (isMounted) setLoading(false)
       } finally {
         authLockRef.current = false
         endTiming('initializeAuth')
@@ -111,12 +103,9 @@ export function AuthProvider({ children }) {
 
     initializeAuth()
 
-    // ✅ FIX: Subscribe to changes - this is the SOURCE OF TRUTH for auth state
-    // This listener handles all auth state changes reliably without timeouts
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return
       
-      // ✅ DEBOUNCE: Prevent duplicate SIGNED_OUT events
       const eventKey = `${event}-${session?.user?.id || 'null'}`
       if (lastAuthEventRef.current === eventKey) {
         debugAuth(`⏭️ Skipping duplicate auth event: ${event}`)
@@ -127,48 +116,38 @@ export function AuthProvider({ children }) {
       
       if (event === 'SIGNED_IN' && session?.user) {
         debugAuth(`✅ User signed in: ${session.user.email}`)
-        const allowedEmails = ['nyamburamary89@gmail.com', 'kyalokennedy142@gmail.com']
         
-        if (!allowedEmails.includes(session.user.email)) {
-          debugAuthError(`❌ Signed-in user not in whitelist: ${session.user.email}`)
-          await supabase.auth.signOut()
-          toast.error('Access denied.')
-          setUser(null)
-          setLoading(false)
-          return
-        }
+        // 🔒 REMOVED THE STRICT WHITELIST BLOCK! 
+        // Now, ANYONE can log in. The role is determined by the email.
         
         setUser(session.user)
         setAuthError(null)
-        setLoading(false)  // ✅ CRITICAL: Unblock UI immediately
+        setLoading(false)  
         
-        // ✅ Fetch role in BACKGROUND without blocking
-        getUserRole(session.user.id).then(role => {
+        // ✅ Fetch role in BACKGROUND, passing the email as a fallback
+        getUserRole(session.user.id, session.user.email).then(role => {
           if (isMounted) {
             setUserRole(role)
             debugAuth(`✅ Role set for signed-in user: ${role}`)
           }
         }).catch(() => {
           if (isMounted) {
-            setUserRole('admin')
-            debugAuth(`✅ Role defaulted to admin (fetch failed)`)
+            setUserRole('attendant') 
+            debugAuth(`✅ Role defaulted to attendant (fetch failed)`) 
           }
         })
       } else if (event === 'SIGNED_OUT' || !session?.user) {
         debugAuth('📢 User signed out or session cleared')
         setUser(null)
-        setUserRole('admin')
+        setUserRole('attendant') 
         setAuthError(null)
-        setLoading(false)  // ✅ CRITICAL: Mark loading as complete
+        setLoading(false)  
       } else {
-        // ✅ INITIAL AUTH CHECK on first mount (no event needed)
-        // When component first mounts, listener fires with current session
         debugAuth('📢 Initial auth state check')
-        setLoading(false)  // If no session, stop loading
+        setLoading(false)  
       }
     })
 
-    // Cleanup
     return () => {
       isMounted = false
       if (subscription?.unsubscribe) {

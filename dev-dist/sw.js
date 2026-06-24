@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-21a80088'], (function (workbox) { 'use strict';
+define(['./workbox-f87553f6'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -79,10 +79,10 @@ define(['./workbox-21a80088'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "registerSW.js",
-    "revision": "9c15e2b7c78bcd246c225f3a2ef26129"
+    "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "/mary-arctic-water-app/index.html",
-    "revision": "0.69ma5d56m2o"
+    "revision": "0.3gkphrrm9mo"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/mary-arctic-water-app/index.html"), {
@@ -94,8 +94,6 @@ define(['./workbox-21a80088'], (function (workbox) { 'use strict';
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 10,
       maxAgeSeconds: 31536000
-    }), new workbox.CacheableResponsePlugin({
-      statuses: [0, 200]
     })]
   }), 'GET');
   workbox.registerRoute(/^https:\/\/bhbdcdohurkumhonkkwq\.supabase\.co\/.*/i, new workbox.NetworkFirst({
@@ -104,15 +102,6 @@ define(['./workbox-21a80088'], (function (workbox) { 'use strict';
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 50,
       maxAgeSeconds: 3600
-    }), new workbox.CacheableResponsePlugin({
-      statuses: [0, 200]
-    })]
-  }), 'GET');
-  workbox.registerRoute(/\.(?:js|css|png|jpg|jpeg|svg|gif|webp|woff2?)$/i, new workbox.CacheFirst({
-    "cacheName": "static-assets-cache",
-    plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 100,
-      maxAgeSeconds: 2592000
     })]
   }), 'GET');
 

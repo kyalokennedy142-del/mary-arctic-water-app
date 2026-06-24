@@ -13,6 +13,9 @@ import { useNavigate } from 'react-router-dom'
 import { checkRateLimit, clearLoginAttempts, getRemainingAttempts } from '@/lib/rateLimiter'
 import { logSecurityEvent, SECURITY_EVENTS } from '@/lib/securityLogger'
 
+// 🔒 CORE ROLE LOGIC: These emails are the Owners. Everyone else is an Attendant.
+const OWNER_EMAILS = ['nyamburamary89@gmail.com', 'kyalokennedy142@gmail.com']
+
 export default function Login() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
@@ -79,7 +82,15 @@ export default function Login() {
       })
       
       toast.success('Welcome back!')
-      navigate('/dashboard')
+      
+      // 🔒 ROLE-BASED REDIRECT: Owners go to dashboard, Attendants go to sales
+      const email = form.email.trim().toLowerCase()
+      if (OWNER_EMAILS.includes(email)) {
+        navigate('/dashboard')
+      } else {
+        navigate('/sales')
+      }
+      
     } catch (err) {
       toast.error('Login failed: ' + err.message)
     } finally {

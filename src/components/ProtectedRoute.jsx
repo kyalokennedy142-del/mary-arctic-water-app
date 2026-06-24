@@ -4,7 +4,8 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading, authError } = useAuth()
+  // ✅ We now pull userRole from the AuthContext
+  const { user, userRole, loading, authError } = useAuth()
   const location = useLocation()
 
   // ✅ Show error if auth failed
@@ -51,6 +52,13 @@ export default function ProtectedRoute({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  // ✅ Render children if authenticated
+  // 🔒 ROLE-BASED ROUTE PROTECTION
+  // If the user is an attendant, they are ONLY allowed on the /sales page.
+  // If they try to type /dashboard or /reports in the URL, they get redirected back to /sales.
+  if (userRole === 'attendant' && location.pathname !== '/sales') {
+    return <Navigate to="/sales" replace />
+  }
+
+  // ✅ Render children if authenticated and authorized
   return children
 }
