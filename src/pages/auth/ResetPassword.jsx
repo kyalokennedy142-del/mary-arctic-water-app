@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { Lock, Droplets, Eye, EyeOff } from 'lucide-react'
+import { Lock, Droplets } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,70 +13,7 @@ export default function ResetPassword() {
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [isValidSession, setIsValidSession] = useState(false)
-  const [isChecking, setIsChecking] = useState(true)
-
-  // 🔒 FIX: Extract token from URL hash and set session
-  useEffect(() => {
-    const processToken = async () => {
-      try {
-        // Supabase puts the token in the URL hash after redirect
-        const hash = window.location.hash
-        console.log('Hash:', hash)
-        
-        // Check if there's a token in the hash
-        if (hash && hash.includes('access_token=')) {
-          // Extract tokens from hash
-          const params = new URLSearchParams(hash.substring(1))
-          const accessToken = params.get('access_token')
-          const refreshToken = params.get('refresh_token')
-          
-          console.log('Access token:', accessToken ? 'found' : 'not found')
-          console.log('Refresh token:', refreshToken ? 'found' : 'not found')
-          
-          if (accessToken && refreshToken) {
-            // Set the session with the tokens
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
-            })
-            
-            if (error) {
-              console.error('Set session error:', error)
-              setIsValidSession(false)
-            } else if (data.session) {
-              console.log('Session set successfully')
-              setIsValidSession(true)
-            }
-          } else {
-            setIsValidSession(false)
-          }
-        } else {
-          // No token in hash, check if there's already a session
-          const { data, error } = await supabase.auth.getSession()
-          
-          if (error) {
-            console.error('Get session error:', error)
-            setIsValidSession(false)
-          } else if (data.session) {
-            console.log('Existing session found')
-            setIsValidSession(true)
-          } else {
-            setIsValidSession(false)
-          }
-        }
-      } catch (err) {
-        console.error('Token processing error:', err)
-        setIsValidSession(false)
-      } finally {
-        setIsChecking(false)
-      }
-    }
-
-    processToken()
-  }, [])
 
   const handleReset = async (e) => {
     e.preventDefault()
@@ -96,7 +33,7 @@ export default function ResetPassword() {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
       
-      toast.success('Password updated! You can now login.')
+      toast.success('Password updated! Please login.')
       await supabase.auth.signOut()
       setTimeout(() => navigate('/login'), 2000)
     } catch (err) {
@@ -104,52 +41,6 @@ export default function ResetPassword() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  // Show loading while checking session
-  if (isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-blue-50 p-4">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <Droplets className="w-8 h-8 text-primary" />
-          </div>
-          <p className="text-muted-foreground">Validating reset link...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Show error if no valid session
-  if (!isValidSession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-blue-50 p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center mx-auto mb-4">
-              <Droplets className="w-8 h-8 text-primary" />
-            </div>
-            <h1 className="text-3xl font-bold text-gradient mb-2">Invalid Reset Link</h1>
-            <p className="text-muted-foreground mb-6">This reset link is invalid or has expired.</p>
-          </div>
-          <div className="card p-8 shadow-xl">
-            <Button 
-              onClick={() => navigate('/forgot-password')} 
-              className="btn-primary-gradient rounded-xl w-full"
-            >
-              Request New Reset Link
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate('/login')} 
-              className="w-full mt-2 text-muted-foreground"
-            >
-              Back to Login
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -166,38 +57,25 @@ export default function ResetPassword() {
           <form onSubmit={handleReset} className="space-y-4">
             <div className="space-y-2">
               <Label>New Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  type={showPassword ? 'text' : 'password'} 
-                  placeholder="••••••••" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  className="pl-10 pr-10 rounded-xl" 
-                  disabled={isLoading} 
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+              <Input 
+                type="password" 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                className="rounded-xl" 
+                disabled={isLoading} 
+              />
             </div>
             <div className="space-y-2">
               <Label>Confirm Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  type={showPassword ? 'text' : 'password'} 
-                  placeholder="••••••••" 
-                  value={confirmPassword} 
-                  onChange={(e) => setConfirmPassword(e.target.value)} 
-                  className="pl-10 rounded-xl" 
-                  disabled={isLoading} 
-                />
-              </div>
+              <Input 
+                type="password" 
+                placeholder="••••••••" 
+                value={confirmPassword} 
+                onChange={(e) => setConfirmPassword(e.target.value)} 
+                className="rounded-xl" 
+                disabled={isLoading} 
+              />
             </div>
             <Button type="submit" disabled={isLoading} className="btn-primary-gradient rounded-xl w-full">
               {isLoading ? 'Updating...' : 'Update Password'}
