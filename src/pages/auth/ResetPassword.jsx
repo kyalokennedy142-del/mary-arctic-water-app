@@ -7,52 +7,46 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabaseClient'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
-  const location = useLocation()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [isValidToken, setIsValidToken] = useState(false)
+  const [isValidSession, setIsValidSession] = useState(false)
+  const [isChecking, setIsChecking] = useState(true)
 
-  // 🔒 FIX: Detect the recovery token from URL hash
+  // 🔒 FIX: Check for valid session from Supabase recovery token
   useEffect(() => {
-    const handleRecoveryToken = async () => {
-      // Check if there's a hash in the URL (Supabase sends token in hash)
-      const hash = window.location.hash
-      if (hash && hash.includes('access_token=')) {
-        try {
-          // Supabase automatically processes the hash and creates a session
-          const { data, error } = await supabase.auth.getSession()
-          if (error) {
-            console.error('Session error:', error)
-            toast.error('Invalid or expired reset link')
-            navigate('/forgot-password')
-            return
-          }
-          if (data.session) {
-            setIsValidToken(true)
-          } else {
-            toast.error('No active session. Please request a new reset link.')
-            navigate('/forgot-password')
-          }
-        } catch (err) {
-          console.error('Token error:', err)
-          toast.error('Failed to validate reset link')
-          navigate('/forgot-password')
+    const checkSession = async () => {
+      try {
+        // Supabase automatically processes the token from URL and creates a session
+        const { data, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Session error:', error)
+          setIsChecking(false)
+          setIsValidSession(false)
+          return
         }
-      } else {
-        // No token in URL - user shouldn't be here directly
-        toast.error('Invalid reset link. Please request a new one.')
-        navigate('/forgot-password')
+        
+        if (data.session) {
+          setIsValidSession(true)
+        } else {
+          setIsValidSession(false)
+        }
+      } catch (err) {
+        console.error('Session check error:', err)
+        setIsValidSession(false)
+      } finally {
+        setIsChecking(false)
       }
     }
 
-    handleRecoveryToken()
-  }, [navigate])
+    checkSession()
+  }, [])
 
   const handleReset = async (e) => {
     e.preventDefault()
@@ -82,8 +76,8 @@ export default function ResetPassword() {
     }
   }
 
-  // Show loading while checking token
-  if (!isValidToken) {
+  // Show loading while checking session
+  if (isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-blue-50 p-4">
         <div className="text-center">
@@ -91,6 +85,38 @@ export default function ResetPassword() {
             <Droplets className="w-8 h-8 text-primary" />
           </div>
           <p className="text-muted-foreground">Validating reset link...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error if no valid session
+  if (!isValidSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-blue-50 p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center mx-auto mb-4">
+              <Droplets className="w-8 h-8 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold text-gradient mb-2">Invalid Reset Link</h1>
+            <p className="text-muted-foreground mb-6">This reset link is invalid or has expired.</p>
+          </div>
+          <div className="card p-8 shadow-xl">
+            <Button 
+              onClick={() => navigate('/forgot-password')} 
+              className="btn-primary-gradient rounded-xl w-full"
+            >
+              Request New Reset Link
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/login')} 
+              className="w-full mt-2 text-muted-foreground"
+            >
+              Back to Login
+            </Button>
+          </div>
         </div>
       </div>
     )
