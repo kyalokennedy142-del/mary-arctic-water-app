@@ -22,6 +22,7 @@ export default function ForgotPassword() {
     }
     setIsLoading(true)
     try {
+      // 🔒 FIX: Put the /#/ back because your app uses hash routing
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo: `${window.location.origin}/#/reset-password`
       })
