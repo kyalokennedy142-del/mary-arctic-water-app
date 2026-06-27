@@ -18,34 +18,64 @@ export default function ResetPassword() {
   const [isValidSession, setIsValidSession] = useState(false)
   const [isChecking, setIsChecking] = useState(true)
 
-  // 🔒 FIX: Check for valid session from Supabase recovery token
+  // 🔒 FIX: Extract token from URL hash and set session
   useEffect(() => {
-    const checkSession = async () => {
+    const processToken = async () => {
       try {
-        // Supabase automatically processes the token from URL and creates a session
-        const { data, error } = await supabase.auth.getSession()
+        // Supabase puts the token in the URL hash after redirect
+        const hash = window.location.hash
+        console.log('Hash:', hash)
         
-        if (error) {
-          console.error('Session error:', error)
-          setIsChecking(false)
-          setIsValidSession(false)
-          return
-        }
-        
-        if (data.session) {
-          setIsValidSession(true)
+        // Check if there's a token in the hash
+        if (hash && hash.includes('access_token=')) {
+          // Extract tokens from hash
+          const params = new URLSearchParams(hash.substring(1))
+          const accessToken = params.get('access_token')
+          const refreshToken = params.get('refresh_token')
+          
+          console.log('Access token:', accessToken ? 'found' : 'not found')
+          console.log('Refresh token:', refreshToken ? 'found' : 'not found')
+          
+          if (accessToken && refreshToken) {
+            // Set the session with the tokens
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            })
+            
+            if (error) {
+              console.error('Set session error:', error)
+              setIsValidSession(false)
+            } else if (data.session) {
+              console.log('Session set successfully')
+              setIsValidSession(true)
+            }
+          } else {
+            setIsValidSession(false)
+          }
         } else {
-          setIsValidSession(false)
+          // No token in hash, check if there's already a session
+          const { data, error } = await supabase.auth.getSession()
+          
+          if (error) {
+            console.error('Get session error:', error)
+            setIsValidSession(false)
+          } else if (data.session) {
+            console.log('Existing session found')
+            setIsValidSession(true)
+          } else {
+            setIsValidSession(false)
+          }
         }
       } catch (err) {
-        console.error('Session check error:', err)
+        console.error('Token processing error:', err)
         setIsValidSession(false)
       } finally {
         setIsChecking(false)
       }
     }
 
-    checkSession()
+    processToken()
   }, [])
 
   const handleReset = async (e) => {
