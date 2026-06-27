@@ -82,6 +82,7 @@ export default function Navbar() {
     { path: '/stock', label: 'Stock', icon: Package },
     { path: '/sales', label: 'Sales', icon: ShoppingCart },
     { path: '/reports', label: 'Reports', icon: FileText },
+    { path: '/change-password', label: 'Change Password', icon: User }
   ]
 
   // 🔒 ROLE-BASED NAVIGATION: Filter items based on user role

@@ -5,6 +5,7 @@ import Signup from './pages/auth/Signup'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
 import Dashboard from './pages/Dashboard'
+import changePassword from './pages/auth/ChangePassword'
 // ... other imports
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -22,6 +23,11 @@ function App() {
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/change-password" element={
+          <ProtectedRoute>
+            <changePassword />
           </ProtectedRoute>
         } />
         <Route path="/customers" element={

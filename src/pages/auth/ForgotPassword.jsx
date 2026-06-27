@@ -1,40 +1,11 @@
 "use client"
 
-import { useState } from 'react'
-import { Mail, ArrowLeft, Droplets } from 'lucide-react'
+import { Mail, ArrowLeft, Droplets, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { toast } from 'sonner'
-import { supabase } from '@/lib/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 
 export default function ForgotPassword() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleResetRequest = async (e) => {
-    e.preventDefault()
-    if (!email) {
-      toast.error('Please enter your email')
-      return
-    }
-    setIsLoading(true)
-    try {
-      // 🔒 FIX: Hardcode the Vercel URL instead of using window.location.origin
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: 'https://mary-arctic-water-app-nine.vercel.app/#/reset-password'
-      })
-      if (error) throw error
-      toast.success('Reset link sent! Check your email.')
-      setTimeout(() => navigate('/login'), 2000)
-    } catch (err) {
-      toast.error('Failed: ' + err.message)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-blue-50 p-4">
@@ -43,25 +14,29 @@ export default function ForgotPassword() {
           <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-primary/20 to-primary-light/20 flex items-center justify-center mx-auto mb-4">
             <Droplets className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold text-gradient mb-2">Reset Password</h1>
-          <p className="text-muted-foreground">Enter your email to receive a reset link</p>
+          <h1 className="text-3xl font-bold text-gradient mb-2">Forgot Password?</h1>
+          <p className="text-muted-foreground">Contact the administrator to reset your password</p>
         </div>
-        <div className="card p-8 shadow-xl">
-          <form onSubmit={handleResetRequest} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 rounded-xl" disabled={isLoading} />
-              </div>
+        <div className="card p-8 shadow-xl space-y-4">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Phone className="w-6 h-6 text-primary" />
             </div>
-            <Button type="submit" disabled={isLoading} className="btn-primary-gradient rounded-xl w-full">
-              {isLoading ? 'Sending...' : 'Send Reset Link'}
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => navigate('/login')} className="w-full text-muted-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" />Back to Login
-            </Button>
-          </form>
+            <h2 className="text-lg font-semibold">Contact Support</h2>
+            <p className="text-muted-foreground text-sm">
+              Email: <a href="mailto:nyamburamary89@gmail.com" className="text-primary hover:underline">nyamburamary89@gmail.com</a>
+            </p>
+            <p className="text-muted-foreground text-sm">
+              Or contact Kennedy: <a href="mailto:kyalokennedy142@gmail.com" className="text-primary hover:underline">kyalokennedy142@gmail.com</a>
+            </p>
+          </div>
+          <Button 
+            onClick={() => navigate('/login')} 
+            className="w-full"
+            variant="outline"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />Back to Login
+          </Button>
         </div>
       </div>
     </div>
