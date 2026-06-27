@@ -3,14 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://kyalokennedy142-del.github.io/mary-arctic-water-app",
+ "homepage": "https://mary-arctic-water-app-nine.vercel.app",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "preview": "vite preview"
+    
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
