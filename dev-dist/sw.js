@@ -81,13 +81,13 @@ define(['./workbox-f87553f6'], (function (workbox) { 'use strict';
     "url": "registerSW.js",
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
-    "url": "/mary-arctic-water-app/index.html",
-    "revision": "0.pdm4gfmuv98"
+    "url": "/index.html",
+    "revision": "0.minu5sb9k4"
   }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/mary-arctic-water-app/index.html"), {
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/index.html"), {
     allowlist: [/^\/$/],
-    denylist: [/^\/mary-arctic-water-app\/api\/.*/i, /^\/mary-arctic-water-app\/manifest\.json$/i, /^\/mary-arctic-water-app\/service-worker\.js$/i]
+    denylist: [/^\/api\/.*/i, /^\/manifest\.json$/i, /^\/service-worker\.js$/i]
   }));
   workbox.registerRoute(/^https:\/\/fonts\.googleapis\.com\/.*/i, new workbox.CacheFirst({
     "cacheName": "google-fonts-cache",

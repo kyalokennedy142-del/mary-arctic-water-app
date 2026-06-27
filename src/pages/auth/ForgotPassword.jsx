@@ -22,9 +22,9 @@ export default function ForgotPassword() {
     }
     setIsLoading(true)
     try {
-      // 🔒 FIX: Put the /#/ back because your app uses hash routing
+      // 🔒 FIX: Hardcode the Vercel URL instead of using window.location.origin
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: `${window.location.origin}/#/reset-password`
+        redirectTo: 'https://mary-arctic-water-app-nine.vercel.app/#/reset-password'
       })
       if (error) throw error
       toast.success('Reset link sent! Check your email.')
