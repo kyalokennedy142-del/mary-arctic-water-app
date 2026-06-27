@@ -6,7 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig({
-  base: '/', // ✅ Must match GitHub repo name
+  base: '/', // ✅ Correct for Vercel (root path)
   
   plugins: [
     react(),
@@ -22,17 +22,17 @@ export default defineConfig({
         theme_color: '#00a8ff',
         background_color: '#ffffff',
         display: 'standalone',
-        start_url: '/mary-arctic-water-app/',
+        start_url: '/', // ✅ Changed from /mary-arctic-water-app/
         orientation: 'portrait-primary',
         icons: [
           {
-            src: '/mary-arctic-water-app/assets/icons/icon-192x192.png',
+            src: '/assets/icons/icon-192x192.png', // ✅ Removed /mary-arctic-water-app/ prefix
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: '/mary-arctic-water-app/assets/icons/icon-512x512.png',
+            src: '/assets/icons/icon-512x512.png', // ✅ Removed /mary-arctic-water-app/ prefix
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
@@ -60,11 +60,11 @@ export default defineConfig({
             }
           }
         ],
-        navigateFallback: '/mary-arctic-water-app/index.html',
+        navigateFallback: '/index.html', // ✅ Changed from /mary-arctic-water-app/index.html
         navigateFallbackDenylist: [
-          /^\/mary-arctic-water-app\/api\/.*/i,
-          /^\/mary-arctic-water-app\/manifest\.json$/i,
-          /^\/mary-arctic-water-app\/service-worker\.js$/i
+          /^\/api\/.*/i, // ✅ Removed /mary-arctic-water-app/ prefix
+          /^\/manifest\.json$/i,
+          /^\/service-worker\.js$/i
         ]
       },
       
