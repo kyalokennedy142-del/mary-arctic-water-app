@@ -208,12 +208,12 @@ export function DataProvider({ children }) {
   // SALES
   // ============================================
 
-  const getSales = useCallback(async (includeArchived = false) => {
+    const getSales = useCallback(async (includeArchived = false) => {
     let query = supabase
       .from('sales')
       .select('id, customer_id, customer_name, product_id, product_name, quantity_sold, price, total, date, is_archived, notes, recorded_by')
       .order('date', { ascending: false })
-      .limit(100)
+      // 🔒 FIX: Removed .limit(100) so ALL sales are fetched, including August
     
     if (!includeArchived) query = query.eq('is_archived', false)
     
